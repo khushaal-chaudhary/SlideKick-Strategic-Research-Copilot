@@ -1,41 +1,76 @@
 # Strategic Research Copilot API
 
-FastAPI backend for the Strategic Research Copilot web interface, designed for deployment on Hugging Face Spaces.
+FastAPI backend for the Strategic Research Copilot, designed for deployment on Hugging Face Spaces.
 
-## Endpoints
+## Features
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/api/query` | POST | Submit a research query |
-| `/api/stream/{session_id}` | GET | SSE stream for real-time logs |
+- **RESTful API** for query submission and session management
+- **Server-Sent Events (SSE)** for real-time streaming updates
+- **Session Management** for tracking research queries
+- **Health Checks** for container orchestration
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | API info |
+| GET | `/health` | Health check |
+| GET | `/docs` | Swagger UI |
+| POST | `/api/query` | Submit a research query |
+| GET | `/api/stream/{session_id}` | Stream real-time events (SSE) |
+| GET | `/api/session/{session_id}` | Get session status |
 
 ## Local Development
 
+1. Create a virtual environment:
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
+```
 
-# Run the server
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Copy environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+4. Run the server:
+```bash
 uvicorn main:app --reload --port 7860
 ```
 
+5. Visit http://localhost:7860/docs for the Swagger UI
+
+## SSE Event Types
+
+The streaming endpoint emits the following event types:
+
+| Event | Description |
+|-------|-------------|
+| `start` | Query processing started |
+| `node_start` | Agent node started processing |
+| `node_complete` | Agent node completed |
+| `progress` | Iteration progress update |
+| `retrieval` | Data retrieved from a source |
+| `insight` | Analysis insight generated |
+| `decision` | Critic decision made |
+| `output` | Output being generated |
+| `final_response` | Final response ready |
+| `complete` | Processing complete |
+| `error` | Error occurred |
+
 ## Deployment to Hugging Face Spaces
 
-1. Create a new Space with Docker SDK
-2. Push this directory to the Space
-3. Configure environment variables in Space settings
-
-### Required Environment Variables
-
-```
-GOOGLE_API_KEY=your_key
-NEO4J_URI=your_uri
-NEO4J_USERNAME=your_username
-NEO4J_PASSWORD=your_password
-TAVILY_API_KEY=your_key
-ALPHA_VANTAGE_API_KEY=your_key
-```
+1. Create a new Space on Hugging Face (Docker SDK)
+2. Push the `api/` directory contents
+3. Set environment secrets in Space settings
+4. The Dockerfile handles the rest
 
 ## Architecture
 
@@ -44,10 +79,26 @@ ALPHA_VANTAGE_API_KEY=your_key
 │   Next.js Web   │ ◄──────────► │   FastAPI API   │
 │   (Vercel)      │              │ (HF Spaces)     │
 └─────────────────┘              └────────┬────────┘
-                                          │
-                                          ▼
-                                 ┌─────────────────┐
-                                 │  Research Agent │
-                                 │  (LangGraph)    │
-                                 └─────────────────┘
+                                         │
+                                         ▼
+                                ┌─────────────────┐
+                                │  Research Agent │
+                                │  (LangGraph)    │
+                                └─────────────────┘
 ```
+
+## Project Structure
+
+```
+api/
+├── main.py          # FastAPI app and endpoints
+├── config.py        # Settings and configuration
+├── schemas.py       # Pydantic models
+├── Dockerfile       # HF Spaces container
+├── requirements.txt # Python dependencies
+└── .env.example     # Environment template
+```
+
+## Author
+
+Khushaal Chaudhary - [khushaalchaudhary.com](https://khushaalchaudhary.com)
