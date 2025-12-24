@@ -34,11 +34,11 @@ class Settings(BaseSettings):
     # LLM Provider Selection
     # -------------------------------------------------------------------------
     llm_provider: Literal["gemini", "ollama", "openai", "groq"] = Field(
-        default="groq",
+        default="ollama",
         description="Which LLM provider to use: gemini, ollama, openai, or groq",
     )
     llm_model: str = Field(
-        default="llama-3.3-70b-versatile",
+        default="qwen2.5:7b",
         description="Model name (e.g., gemini-1.5-flash, qwen2.5:7b, gpt-4o-mini, llama-3.3-70b-versatile)",
     )
     llm_fallback_provider: Literal["ollama", "none"] = Field(
