@@ -1,0 +1,163 @@
+
+
+Dear shareholders, colleagues, customers, and partners:
+
+As I write this, people and organizations everywhere continue to struggle with the uncertainty of a pandemic that continues to cause so much suffering. And yet, as I reflect on what has been a very challenging year for so many—one that will be forever remembered as a heartbreaking chapter in our history—I find reasons to be hopeful.
+
+Our mission to empower every person and every organization on the planet to achieve more has never been more urgent or more needed. And every day this past year, I have had the privilege to see it in action, as customers of every size, in every industry, in every part of the world use our platforms and tools to help address their own challenges and opportunities as well as those of their communities and society at-large.
+
+I have had the honor to see how the hard work and commitment of Microsoft’s employees, the ingenuity of our partners, the trust of our customers, and the support of our shareholders translate into strong results. In fiscal year 2021, we delivered $168 billion in revenue, up 18 percent year-over-year. Operating income grew 32 percent to $70 billion. And we continue to create successful new franchises. LinkedIn and our security business both passed $10 billion in annual revenue for the first time.
+
+OUR OPPORTUNITY
+
+For all the disruption and suffering that the pandemic has wrought on our lives and our communities, it has also been the catalyst for an unprecedented digital transformation that is driving massive technological and societal shifts that are creating important new opportunities for our customers and for Microsoft.
+
+Tech as a percentage of total GDP will double from 5 to 10 percent by 2030. But the most notable thing is what will happen to the other 90 percent. Digital transformation that was projected to happen over the next 10 years is happening today.
+
+Microsoft was built for this moment. Our goal is to foster innovation that generates new ecosystems of inventors, partners, developers, creators, changemakers, public servants, frontline workers, and knowledge workers who, together, drive the engines of growth and opportunity in ways that benefit everyone.
+
+Today, it is exciting to see how our platforms and tools are enabling people and organizations to achieve remarkable things that would have been unimaginable even a few years ago.
+
+Here are just a few examples:
+
+    NASA’s Mars mission achieved a milestone in space exploration when the small robotic helicopter Ingenuity completed the first powered flight on another planet—a feat that would not have been possible without 12,000 developers on GitHub who contributed code to the open source software that powered the flight.
+    When a 1,300-foot ship blocked the Suez Canal and disrupted global shipping, our partner Blue Yonder used Microsoft AI technologies to help its customers find alternate sources for more than $500 million worth of products and parts affected by the delay.
+    Team Rubicon—a nonprofit organization that responds to humanitarian crises around the world—set up 169 COVID-19 response sites across the United States in just 30 days, using Dynamics 365 to manage the deployment of thousands of volunteers.
+    Surgeons at Mt. Sinai Health System in New York and Kyabirwa Surgical Centre in Uganda have together performed more than 500 surgeries using mixed reality technology that enables doctors in New York to provide annotated recommendations that appear in the field of vision of their Ugandan colleagues—even though they are thousands of miles apart.
+    Anheuser-Busch InBev—the world’s largest brewer—used Azure Digital Twins to create a comprehensive digital model of its breweries and supply chain. Synchronized with its physical environment, this model replicates the complex relationships between natural ingredients and the brewing process, enabling brewmasters to make adjustments based on real-time conditions.
+
+Across our solution areas, we are delivering platforms and tools that expand our opportunity to help organizations around the world build their own tech intensity.
+
+Applications and Infrastructure
+
+Computing architecture is undergoing radical transformation as the number of connected devices and the volume of data generated at the edge increase dramatically. With more than 60 datacenter regions—including 15 new regions added this year on five continents—we are delivering faster access to data and cloud services while addressing critical data residency requirements.
+
+This year, we expanded our hybrid capabilities to enable organizations to build, manage, and deploy applications anywhere. With Azure Arc, customers can deploy Azure data services on-premises, at the edge, or in multicloud environments. Azure Space is extending Azure capabilities through worldwide satellite-based connectivity. And with Azure for Operators, we provide telecom operators and enterprises with the ultra-low latency cloud computing power at the edge needed for breakthrough scenarios like precision inventory tracking at ports and production lines that automatically adjust to changing demand.
+
+We are also at the forefront of the enterprise metaverse, a new infrastructure layer made possible through the convergence of the digital and physical worlds. By combining the Internet of Things, AI, and mixed reality, this platform layer enables the creation of rich digital twin simulations of real-world processes, places, and things so organizations can monitor complex systems in real time, interact within them using mixed reality, and run simulations to model, analyze, and predict performance.
+
+Data and AI
+
+No asset is more strategic than data. In the next three years, we’ll create more data than we did in the past 10. But our ability to make sense of data is growing more difficult as the volume, velocity, and variety expand. The leading indicator of digital transformation success can be measured by an organization’s ability to build predictive and analytical power.
+
+We offer organizations the ability to ensure their data is being used only for their benefit. Azure Synapse brings together data integration, data warehousing, and big data analytics so organizations can query data on their own terms at any scale. And, new Azure Purview offers organizations comprehensive data management and governance to map all their data, whether it resides on-premises, in the cloud, or in software as a service (SaaS) applications.
+
+And we continue to bring rich AI capabilities directly into the data stack as large-scale models become powerful platforms in their own right. During the past year, our partner OpenAI achieved dramatic advances training models like GPT-3—the largest and most advanced language model in the world—on our Azure AI supercomputer. We exclusively licensed GPT-3, allowing us to leverage its technical innovations to deliver advanced AI solutions for our customers, as well as create new solutions that harness the power of advanced natural language generation.
+
+Developer Tools
+
+As organizations focus on creating their own technology solutions, they will need standardized tools to modernize existing apps and build new ones.
+
+To address this, we provide a complete chain of software development tools across every cloud and client platform. From Visual Studio to GitHub, we deliver the best tools for moving quickly from idea to code and from code to the cloud. Visual Studio has more than 25 million monthly users, and GitHub is home to over 65 million developers who use it to build, ship, and maintain their software.
+
+At the platform as a service (PaaS) level, new Azure Communication Services enable developers to integrate rich communications APIs into their applications using the same infrastructure that powers Microsoft Teams.
+
+With Azure Mixed Reality Services, digital information can be represented within the context of the three-dimensional world we live in. And Microsoft Mesh enables developers to build immersive, multiuser, cross-platform mixed reality apps. It transforms how people connect holographically with others in a natural way.
+
+And, finally, our comprehensive portfolio of AI tools, frameworks, and infrastructure enables developers to build solutions that comprehend speech, make predictions, provide insights, and support decision-making.
+
+Power Platform
+
+Application development is moving beyond professional developers and into the hands of citizen developers—everyone from domain experts, to designers, marketers, salespeople, customer service professionals, teachers, students, and others.
+
+In the same way that Office revolutionized productivity for knowledge workers, Power Platform—which has over 16 million monthly users—is transforming application development so that anyone can automate workflows, create apps, build virtual agents, and analyze data.
+
+Business Applications
+
+Every organization is looking to digitize their end-to-end operations—from sales and customer service to supply chain management—so they can rapidly adapt to changing market dynamics.
+
+With Dynamics 365, we’re building a new generation of business applications to meet this challenge. New integrations between Dynamics 365 and Teams enable everyone across an organization to view and collaborate on customer records seamlessly within Teams, and to meet, chat, and collaborate within Dynamics 365.
+
+More broadly, we are leading the way with solutions tailored to the needs of key industries. During the past year, we introduced industry clouds for financial services, healthcare, manufacturing, nonprofits, and retail that make it easier for organizations to take advantage of the full power of our tech stack and to utilize new, industry-specific customizations that improve time to value, increase agility, and lower costs.
+
+AI is technology’s most important priority, and healthcare is its most urgent application. And with our pending acquisition of Nuance Communications, we’ll provide ambient clinical intelligence capabilities for healthcare organizations that improve the patient experience and reduce the overwhelming burden of work that physicians struggle with today.
+
+LinkedIn
+
+In our rapidly changing digital economy, people need a platform where they can acquire new skills, expand their networks, and connect with employers. The strong success of LinkedIn is a clear indicator of how important this is. In the five years since Microsoft acquired LinkedIn, revenue has nearly tripled and growth has accelerated.
+
+Today, LinkedIn has more than 774 million members and is a leader in B2B advertising, professional hiring, corporate learning, and sales intelligence. From LinkedIn profiles within Office, to LinkedIn Learning courses within Microsoft Viva, and LinkedIn Sales Navigator leads within Dynamics 365, we continue to bring the power of LinkedIn and Microsoft together to transform how people learn, sell, and connect.
+
+Modern Work
+
+The rise of hybrid work will be one of the most profound changes to the way people work in more than a century. To navigate it, organizations will need to embrace flexibility across their entire operating model, including the ways people work, the places they inhabit, and how they manage business process.
+
+Our approach to hybrid work starts with Teams—the only all-in-one solution that supports meetings, calls, chat, collaboration, and business process automation in day-to-day workflow. Over the past year, we introduced hundreds of new features, from new presenter modes to new inclusive meeting experiences, that make it easy for everyone to be full participants in meetings, whether they’re joining from home, the office, a conference room, or a factory floor. Nearly 250 million people use Teams every month.
+
+In this new hybrid work environment, having a digital employee experience platform will be key to business success. This is why we introduced Microsoft Viva, which brings the information, resources, and support employees need to stay connected to each other and their company’s mission directly into the flow of work.
+
+The past year has also made clear how essential PCs are to work, learning, and life at home. With Windows 11—the biggest update to our operating system in a decade—we’re reimagining everything from the platform to the store to help people and organizations be more productive, connected, and secure, and to build a more open ecosystem for developers and creators. With every new generation of Windows, we also unlock the next generation of hardware innovation across our ecosystem. And I’m excited to see new PCs from Surface and our OEM ecosystem ship with Windows 11 this holiday season that include the latest innovations in touch, pen, and voice, as well as new breakthroughs in both accessibility and sustainability.
+
+And with Windows 365, we are creating a new category: the cloud PC. By bringing the operating system to the cloud, we’re enabling organizations to stream the full Windows experience to their employees’ personal or corporate device with just a few clicks. This will give organizations greater flexibility and a more secure way to empower employees to be productive and connected, regardless of their location.
+
+Security
+
+The threat landscape has never been more complex or challenging, and security has never been more critical for our customers or society as a whole. In response, we will invest $20 billion over the next five years to advance our security solutions. Our goal is to help every organization strengthen its security capabilities through a Zero Trust architecture built on our comprehensive solutions that span identity, security, compliance, and device management across all clouds and platforms.
+
+Beyond our products, our operational security posture and threat intelligence help customers defend themselves. Last year, we intercepted 30 billion email threats and 31 billion authentication attacks. And as I write this, we are tracking more than 140 groups that pose an active threat to global cybersecurity.
+
+Gaming
+
+Three billion people around the world play games, which makes gaming the largest category in the entertainment industry. We are expanding our opportunity to reach every one of them.
+
+With Xbox Game Pass, we are transforming how people discover, connect, and engage with games. Great content drives Game Pass’ growth, and our acquisition this year of ZeniMax Media adds some of the world’s most iconic franchises to the service. We also continue to lead in the fast-growing cloud gaming market. Xbox Cloud Gaming is now available on PCs, as well as phones and tablets, and later this year will come to the console.
+
+Introduced in November 2020, the new Xbox Series S and X are our fastest-selling consoles ever. And we continue to expand our opportunity in the creator economy by adding new ways for players to build and monetize their creations in many of our most popular games.
+
+OUR PURPOSE
+
+As we pursue the opportunities ahead, we also recognize our increased responsibility in a world that will require much more from technology to address its most pressing challenges. To help people and organizations everywhere achieve more, we are focused on four interconnected pillars.
+
+Support inclusive economic opportunity
+
+At Microsoft, we believe that the economic growth we help drive must reach every person, community, and country. This starts with access to broadband. The pandemic has underscored that without it, people lack access to education, healthcare, economic opportunity, and more. We are continuing our efforts to extend broadband access to millions of people in rural and underserved communities in the United States and around the globe. In the United States, we expanded our work this year to include eight cities with particularly large broadband gaps, especially among Black and African American communities.
+
+We must also continue to increase access to digital skills. In June 2020, with tens of millions of people displaced from their jobs due to the pandemic, we brought resources together from across Microsoft, inclusive of LinkedIn and GitHub, to help 25 million people connect to the digital skills for in-demand roles. Together with our partners, we have reached more than 47 million people to date, across 250 countries, but the work doesn’t stop there. We’re helping companies make 250,000 skills-based hires this year—ensuring those who learn digital skills can convert them into jobs and opportunity. For example, through LinkedIn’s new Skills Path pilot, we’re providing tools to help businesses source job candidates in a more equitable way—based on their proven proficiencies.
+
+To build a more inclusive economy, we also have a responsibility to help close the Disability Divide, which impacts more than 1 billion people with disabilities around the world. That’s why in April we announced a new five-year commitment to spur the development of accessible technology, expand opportunities for people with disabilities in the workforce, and build a more inclusive workplace.
+
+And we continue to make our technology affordable and accessible to nonprofit organizations around the world. This year, we provided $2.5 billion in donated and discounted products and services to help 295,000 nonprofits better serve their communities. Our employees donated an additional $214 million (including the company match) to the organizations and causes they care about.
+
+Protect fundamental rights
+
+We support the fundamental rights of all people. This year, we made progress in our work to address racial injustice and inequity. We released our first annual Racial Equity Initiative: Strengthening Our Communities report, which focuses on justice reform, affordable broadband, skills and education, and support for community-based nonprofits. And we continue to improve the representation of our ecosystem by engaging with diverse suppliers, financial institutions, and channel partners. While we’re proud of our progress, we know we have much more work to do to help our communities, increase representation, and strengthen our culture of inclusion to influence broader, systemic change.
+
+We must also protect the institutions and processes of democracy. Through our Democracy Forward Program, we’re working across sectors to safeguard electoral processes and defend against disinformation. And to preserve and protect journalism, we’re helping strengthen local news ecosystems, restore trust in news, and provide cybersecurity and legal security for journalists.
+
+Finally, we continue to stand up for human rights, which includes taking action to prevent modern slavery and human trafficking in our business and supply chain and supporting humanitarian action and emergency response. Last year, we mobilized resources to respond to the Beirut explosion, hurricanes in Central America, wildfires in the United States, and more. To date, we’ve committed cash, technology, and other resources with a value of more than $410 million to support ongoing COVID-19 response efforts.
+
+Commit to a sustainable future
+
+While the pandemic has been the defining issue of the past year-and-a-half, climate change is the challenge of our lifetime. And as a global technology company, we have a particular responsibility to do our part. In January, we released our first annual sustainability report, sharing our progress toward becoming carbon negative, zero waste, and water positive by 2030. In fiscal year 2020, Microsoft reduced its carbon emissions by 587,000 metric tons and purchased the removal of 1.3 million metric tons of carbon. We are building a Planetary Computer to help manage and protect Earth’s natural systems. And we have made a commitment to match 100 percent of our electricity consumption with zero carbon energy purchases 100 percent of the time by 2030.
+
+We also know that solving the carbon problem will require new technology and partnerships. This is why we launched the Microsoft Cloud for Sustainability—to create a new business process category that will help every organization measure, report, and reduce their environmental impact. It’s also why we’re making direct investments through our $1 billion Climate Innovation Fund to help organizations accelerate the development of solutions for carbon reduction and removal technology.
+
+Earn trust
+
+We want our customers and partners to build their own digital capability and become independent with us, not dependent on us. This is not possible without trust. For Microsoft, trust is built on privacy, security, digital safety, the responsible use of AI, and transparency.
+
+Our approach to privacy begins with the belief that people have a right to own their personal data and that companies have a responsibility to collect and use personal data responsibly. This is why we were the first major tech company to support GDPR—the EU’s privacy law that is the standard for privacy legislation around the world—and why we are strong advocates for passage of comprehensive federal privacy legislation in the United States.
+
+It extends to our investments in security, and our belief that the public and private sectors—including tech companies—must be transparent so we can work together on a coordinated global response.
+
+How we develop and use AI is also a critical component of trust. To ensure our AI technologies are used responsibly and to avoid unintended consequences, we take a principled approach built on fairness, reliability and safety, privacy and security, inclusiveness, transparency, and accountability. Our Office of Responsible AI ensures that we put these principles into practice, and our Responsible AI Resources Center shares guidelines and tools to help our customers and the developer community do the same.
+
+Finally, we believe transparency is the foundation of trust, so we continue to offer clear information on how we run our business and work with customers and partners. Our CSR Reports Hub provides detailed information on law enforcement access to data, our environmental data, our political activities, our workforce demographics, and our human rights work.
+
+No one company, industry, or country can solve these challenges alone. While our own actions are important, our most critical contribution will come from sharing our learnings and helping other organizations achieve their own goals for a better future too.
+
+OUR CULTURE
+
+Ultimately, our culture will determine the lengths of what we will achieve. We aspire to create a culture where employees are encouraged to be curious, to experiment, and to share things they learn. This is why we put so much emphasis over the past few years on building a culture that centers on our commitment to a growth mindset.
+
+This growth mindset served us well during the past year of crisis, disruption, and transformation. It drives our passion to obsess about our customers, and to learn about and from them. It has helped us become more empathetic toward our colleagues and enabled us to work together as a team—as One Microsoft. And it underlies our approach to diversity and inclusion.
+
+We know that as we become more representative of the communities where we live and work, and the people around the world who we aspire to serve, we become better at helping everyone on the planet achieve more. Diversity and inclusion continues to be a core priority for every employee at Microsoft and is incorporated into our performance and career development approach. To accelerate the inclusion journey for employees, as well as our ecosystem, we hosted Include 2021, a global event focused on diversity and inclusion, and continue to invest in shared understanding by publishing resources and learnings broadly. And in the first year of our commitment to address inequity and racial injustice, we are well on our way to doubling the number of Black and African American, Hispanic, and Latinx employees in leadership positions at Microsoft in the United States by 2025.
+
+Care is the new currency for every leader, and we’ve built a new framework to help our managers strengthen their teams and deliver success through empowerment and accountability. Our managers strive to model our culture and values in their actions, to coach their teams to define objectives and adapt and learn, and to care deeply for their employees, seeking to understand their capabilities, ambitions, and invest in their growth.
+
+***
+
+Although it may be difficult to imagine in this time of immeasurable hardship and deep uncertainty, I see boundless possibility ahead. I am encouraged because of the power of you, our shareholders, our employees, our partners, our customers, and everyone who has continued to work hard to make the world a better place in the face of constraints. And if we continue to pursue our mission, I am certain that we will collectively achieve so much more together.
+
+I couldn’t be more optimistic.

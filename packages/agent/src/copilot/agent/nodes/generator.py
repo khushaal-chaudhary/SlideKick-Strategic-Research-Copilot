@@ -1,0 +1,620 @@
+"""
+Generator Node - Creates deliverables in the appropriate format.
+
+This node:
+1. Takes the analyzed insights
+2. Decides on the best output format (or uses the planned one)
+3. Generates content in that format
+4. For slides, creates Google Slides via API
+"""
+
+import json
+import logging
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from copilot.agent.state import OutputFormat, QueryType, ResearchState
+from copilot.llm import get_llm
+
+logger = logging.getLogger(__name__)
+
+
+CHAT_RESPONSE_PROMPT = """You are a strategic research analyst providing findings.
+
+## Original Query
+{query}
+
+## Key Insights
+{insights}
+
+## Full Synthesis
+{synthesis}
+
+## Quality Context
+- Confidence Score: {quality_score:.0%}
+- Entities Analyzed: {entity_count}
+
+## Task
+Provide a clear, professional response that:
+1. Directly answers the query
+2. Highlights the most important insights
+3. Notes any limitations or gaps in the analysis
+4. Is conversational but substantive
+
+Keep the response focused and actionable. For strategic queries, include recommendations.
+"""
+
+
+SLIDES_CONTENT_PROMPT = """You are creating an executive presentation that is both informative AND visually appealing.
+
+## Original Query
+{query}
+
+## Key Insights
+{insights}
+
+## Full Synthesis
+{synthesis}
+
+## Task
+Create a slide deck structure with:
+1. Title slide (compelling title + subtitle)
+2. Executive summary (3 key takeaways maximum)
+3. 2-4 content slides (one per major insight)
+4. Recommendations/Next Steps slide
+
+## AESTHETIC DESIGN GUIDELINES (Critical)
+Follow these principles for professional, visually appealing slides:
+
+### Text & Content Rules
+- **Maximum 5 bullets per slide** - Less is more
+- **Keep bullets under 10 words each** - Concise, punchy language
+- **Use action verbs** to start bullets (Drive, Implement, Analyze, etc.)
+- **No paragraphs** - Only short phrases or single sentences
+- **Consistent capitalization** - Title Case for titles, Sentence case for bullets
+
+### Visual Hierarchy
+- **Title**: Clear, descriptive, under 8 words
+- **Subtitle**: Supporting context (dates, categories)
+- **Body**: Scannable in under 5 seconds
+
+### Slide Type Best Practices
+- **Title Slide**: Bold statement + clear subtitle, no clutter
+- **Executive Summary**: Exactly 3 bullets - the "So What?" takeaways
+- **Content Slides**: One key idea per slide with supporting points
+- **Recommendations**: Actionable, specific, measurable items
+
+### Speaker Notes
+- Include presenter talking points (2-3 sentences)
+- Add data sources or evidence references
+- Note transitions between slides
+
+## Response Format (JSON):
+{{
+    "title": "Presentation Title",
+    "subtitle": "Subtitle or date",
+    "slides": [
+        {{
+            "type": "title",
+            "title": "Main Title",
+            "subtitle": "Subtitle"
+        }},
+        {{
+            "type": "executive_summary",
+            "title": "Executive Summary",
+            "bullets": ["Key takeaway 1", "Key takeaway 2", "Key takeaway 3"],
+            "speaker_notes": "Open with the bottom line. These three points summarize our findings."
+        }},
+        {{
+            "type": "content",
+            "title": "Insight Title",
+            "bullets": ["Point 1", "Point 2", "Point 3"],
+            "speaker_notes": "Additional context for presenter with supporting data."
+        }},
+        {{
+            "type": "recommendations",
+            "title": "Recommended Actions",
+            "bullets": ["Action 1: Specific step", "Action 2: Specific step", "Action 3: Specific step"],
+            "speaker_notes": "Close with clear next steps and owners."
+        }}
+    ]
+}}
+
+Respond with valid JSON only. Prioritize clarity and visual impact over completeness.
+"""
+
+
+BULLET_SUMMARY_PROMPT = """You are creating a structured summary.
+
+## Original Query
+{query}
+
+## Key Insights
+{insights}
+
+## Synthesis
+{synthesis}
+
+## Task
+Create a structured bullet summary with clear sections:
+
+# [Topic/Query Summary]
+
+## Key Findings
+• Finding 1
+• Finding 2
+• Finding 3
+
+## Details
+### [Subtopic 1]
+• Detail 1
+• Detail 2
+
+### [Subtopic 2]
+• Detail 1
+• Detail 2
+
+## Gaps/Limitations
+• What we couldn't find
+
+## Recommendations (if applicable)
+• Recommendation 1
+• Recommendation 2
+
+Keep it scannable and professional.
+"""
+
+
+def _format_insights_for_generation(insights: list[dict]) -> str:
+    """Format insights for generation prompts."""
+    if not insights:
+        return "No specific insights were extracted."
+    
+    formatted = []
+    for insight in insights:
+        formatted.append(
+            f"**{insight.get('title', 'Insight')}** ({insight.get('category', 'general')})\n"
+            f"{insight.get('description', '')}\n"
+            f"Evidence: {', '.join(insight.get('supporting_evidence', [])[:3])}\n"
+            f"Confidence: {insight.get('confidence', 0):.0%}"
+        )
+    return "\n\n".join(formatted)
+
+
+def _generate_chat_response(state: ResearchState) -> str:
+    """Generate a conversational response."""
+    llm = get_llm(temperature=0.3)
+    
+    prompt = CHAT_RESPONSE_PROMPT.format(
+        query=state["original_query"],
+        insights=_format_insights_for_generation(state.get("insights", [])),
+        synthesis=state.get("synthesis", "No synthesis available."),
+        quality_score=state.get("quality_score", 0.5),
+        entity_count=len(state.get("entities_found", [])),
+    )
+    
+    response = llm.invoke(prompt)
+    return response.content
+
+
+def _generate_bullet_summary(state: ResearchState) -> str:
+    """Generate a structured bullet summary."""
+    llm = get_llm(temperature=0.3)
+    
+    prompt = BULLET_SUMMARY_PROMPT.format(
+        query=state["original_query"],
+        insights=_format_insights_for_generation(state.get("insights", [])),
+        synthesis=state.get("synthesis", ""),
+    )
+    
+    response = llm.invoke(prompt)
+    return response.content
+
+
+def _generate_slides_content(state: ResearchState) -> dict[str, Any]:
+    """Generate slide deck structure."""
+    llm = get_llm(temperature=0.3)
+    
+    prompt = SLIDES_CONTENT_PROMPT.format(
+        query=state["original_query"],
+        insights=_format_insights_for_generation(state.get("insights", [])),
+        synthesis=state.get("synthesis", ""),
+    )
+    
+    response = llm.invoke(prompt)
+    
+    # Parse JSON response
+    cleaned = response.content.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("```")[1]
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+    cleaned = cleaned.strip()
+    
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Fallback structure
+        return {
+            "title": "Research Findings",
+            "subtitle": state["original_query"][:50],
+            "slides": [
+                {"type": "title", "title": "Research Findings", "subtitle": "Analysis Results"},
+                {"type": "content", "title": "Summary", "bullets": [state.get("synthesis", "")[:200]]},
+            ],
+        }
+
+
+def _convert_to_mcp_batch_requests(slides_content: dict, presentation_id: str) -> list[dict]:
+    """
+    Convert generator's slide format to Google Slides API batch update requests.
+
+    Compatible with @bohachu/google-slides-mcp batch_update_presentation tool.
+    """
+    requests = []
+
+    for idx, slide in enumerate(slides_content.get("slides", [])):
+        slide_type = slide.get("type", "content")
+        slide_object_id = f"slide_{idx}"
+
+        # Determine layout based on slide type
+        if slide_type == "title":
+            layout = "TITLE"
+        elif slide_type == "section":
+            layout = "SECTION_HEADER"
+        else:
+            layout = "TITLE_AND_BODY"
+
+        # Create slide request
+        requests.append({
+            "createSlide": {
+                "objectId": slide_object_id,
+                "insertionIndex": idx,
+                "slideLayoutReference": {
+                    "predefinedLayout": layout
+                }
+            }
+        })
+
+        # Add title text
+        title_text = slide.get("title", "")
+        if title_text:
+            title_box_id = f"title_{idx}"
+            requests.append({
+                "createShape": {
+                    "objectId": title_box_id,
+                    "shapeType": "TEXT_BOX",
+                    "elementProperties": {
+                        "pageObjectId": slide_object_id,
+                        "size": {"width": {"magnitude": 600, "unit": "PT"}, "height": {"magnitude": 50, "unit": "PT"}},
+                        "transform": {"scaleX": 1, "scaleY": 1, "translateX": 50, "translateY": 30, "unit": "PT"}
+                    }
+                }
+            })
+            requests.append({
+                "insertText": {
+                    "objectId": title_box_id,
+                    "text": title_text,
+                    "insertionIndex": 0
+                }
+            })
+
+        # Add subtitle for title slides
+        if slide_type == "title" and slide.get("subtitle"):
+            subtitle_box_id = f"subtitle_{idx}"
+            requests.append({
+                "createShape": {
+                    "objectId": subtitle_box_id,
+                    "shapeType": "TEXT_BOX",
+                    "elementProperties": {
+                        "pageObjectId": slide_object_id,
+                        "size": {"width": {"magnitude": 500, "unit": "PT"}, "height": {"magnitude": 30, "unit": "PT"}},
+                        "transform": {"scaleX": 1, "scaleY": 1, "translateX": 100, "translateY": 90, "unit": "PT"}
+                    }
+                }
+            })
+            requests.append({
+                "insertText": {
+                    "objectId": subtitle_box_id,
+                    "text": slide.get("subtitle", ""),
+                    "insertionIndex": 0
+                }
+            })
+
+        # Add bullet points for content slides
+        bullets = slide.get("bullets", [])
+        if bullets and slide_type != "title":
+            body_box_id = f"body_{idx}"
+            bullet_text = "\n".join(f"• {b}" for b in bullets)
+            requests.append({
+                "createShape": {
+                    "objectId": body_box_id,
+                    "shapeType": "TEXT_BOX",
+                    "elementProperties": {
+                        "pageObjectId": slide_object_id,
+                        "size": {"width": {"magnitude": 600, "unit": "PT"}, "height": {"magnitude": 300, "unit": "PT"}},
+                        "transform": {"scaleX": 1, "scaleY": 1, "translateX": 50, "translateY": 100, "unit": "PT"}
+                    }
+                }
+            })
+            requests.append({
+                "insertText": {
+                    "objectId": body_box_id,
+                    "text": bullet_text,
+                    "insertionIndex": 0
+                }
+            })
+
+    return requests
+
+
+def _get_service_account_credentials():
+    """
+    Load Google Service Account credentials.
+
+    Looks for credentials in:
+    1. packages/google-slides-mcp/keys/google_service_account_key.json
+    2. Environment variable GOOGLE_APPLICATION_CREDENTIALS
+    """
+    from google.oauth2 import service_account
+
+    # Path 1: Local keys directory
+    local_key_path = (
+        Path(__file__).parent.parent.parent.parent.parent
+        / "google-slides-mcp"
+        / "keys"
+        / "google_service_account_key.json"
+    )
+
+    if local_key_path.exists():
+        return service_account.Credentials.from_service_account_file(
+            str(local_key_path),
+            scopes=[
+                "https://www.googleapis.com/auth/presentations",
+                "https://www.googleapis.com/auth/drive.file",
+            ],
+        )
+
+    # Path 2: Environment variable
+    import os
+
+    env_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    if env_path and Path(env_path).exists():
+        return service_account.Credentials.from_service_account_file(
+            env_path,
+            scopes=[
+                "https://www.googleapis.com/auth/presentations",
+                "https://www.googleapis.com/auth/drive.file",
+            ],
+        )
+
+    return None
+
+
+def _get_share_email() -> str | None:
+    """
+    Get the email address to share presentations with.
+
+    Checks:
+    1. Environment variable GOOGLE_SLIDES_SHARE_EMAIL
+    2. Could be extended to check a config file
+    """
+    import os
+
+    return os.environ.get("GOOGLE_SLIDES_SHARE_EMAIL")
+
+
+def _share_presentation(presentation_id: str, email: str, creds) -> tuple[bool, str | None]:
+    """
+    Share a Google Slides presentation with a specific email.
+
+    Args:
+        presentation_id: The ID of the presentation to share
+        email: The email address to share with
+        creds: Google service account credentials
+
+    Returns:
+        Tuple of (success, error_message)
+    """
+    try:
+        from googleapiclient.discovery import build
+
+        drive_service = build("drive", "v3", credentials=creds)
+
+        # Create permission to share with user
+        permission = {
+            "type": "user",
+            "role": "writer",  # Can edit the presentation
+            "emailAddress": email,
+        }
+
+        drive_service.permissions().create(
+            fileId=presentation_id,
+            body=permission,
+            sendNotificationEmail=True,  # Send email notification
+            emailMessage="A new research presentation has been shared with you from Strategic Research Copilot.",
+        ).execute()
+
+        logger.info("   Shared presentation with: %s", email)
+        return True, None
+
+    except Exception as e:
+        logger.warning("   Failed to share presentation: %s", e)
+        return False, str(e)
+
+
+def _create_google_slides(
+    slides_content: dict, share_email: str | None = None
+) -> dict[str, Any]:
+    """
+    Create Google Slides presentation using Service Account authentication.
+
+    Uses @bohachu/google-slides-mcp compatible approach with service account.
+
+    Args:
+        slides_content: The slide deck structure to create
+        share_email: Optional email to share the presentation with (overrides config)
+
+    Returns:
+        Dict with keys:
+        - url: Presentation URL (or None if failed)
+        - error: Error message (or None if success)
+        - presentation_id: The presentation ID
+        - shared: Whether the presentation was shared
+        - share_email_needed: True if email is needed for sharing
+    """
+    result = {
+        "url": None,
+        "error": None,
+        "presentation_id": None,
+        "shared": False,
+        "share_email_needed": False,
+    }
+
+    try:
+        from googleapiclient.discovery import build
+
+        # Get service account credentials
+        creds = _get_service_account_credentials()
+        if not creds:
+            result["error"] = (
+                "Google Service Account not configured. "
+                "Add google_service_account_key.json to packages/google-slides-mcp/keys/"
+            )
+            return result
+
+        # Build Slides API service
+        slides_service = build("slides", "v1", credentials=creds)
+
+        # Step 1: Create empty presentation
+        presentation = (
+            slides_service.presentations()
+            .create(body={"title": slides_content.get("title", "Research Presentation")})
+            .execute()
+        )
+
+        presentation_id = presentation.get("presentationId")
+        url = f"https://docs.google.com/presentation/d/{presentation_id}/edit"
+
+        result["presentation_id"] = presentation_id
+        result["url"] = url
+
+        logger.info("   Created presentation: %s", presentation_id)
+
+        # Step 2: Build batch update requests for slides content
+        batch_requests = _convert_to_mcp_batch_requests(slides_content, presentation_id)
+
+        if batch_requests:
+            # Execute batch update to add all slides and content
+            slides_service.presentations().batchUpdate(
+                presentationId=presentation_id, body={"requests": batch_requests}
+            ).execute()
+            logger.info("   Added %d slides with content", len(slides_content.get("slides", [])))
+
+        # Step 3: Share the presentation
+        # Priority: provided email > configured email
+        email_to_share = share_email or _get_share_email()
+
+        if email_to_share:
+            success, share_error = _share_presentation(presentation_id, email_to_share, creds)
+            result["shared"] = success
+            if not success:
+                logger.warning("   Could not share: %s", share_error)
+        else:
+            # No email configured - flag that we need one
+            result["share_email_needed"] = True
+            logger.info("   No share email configured - user will need to provide one")
+
+        return result
+
+    except ImportError:
+        result["error"] = "Google API not installed. Run: pip install google-api-python-client google-auth"
+        return result
+    except Exception as e:
+        logger.exception("Failed to create Google Slides")
+        result["error"] = f"Failed to create slides: {str(e)}"
+        return result
+
+
+def generator_node(state: ResearchState) -> dict[str, Any]:
+    """
+    Generate the final deliverable.
+    
+    This node:
+    1. Determines the output format
+    2. Generates content appropriate for that format
+    3. For slides, attempts to create via MCP
+    4. Returns the generated content
+    
+    Returns:
+        State updates with generated content
+    """
+    output_format = state.get("output_format", OutputFormat.CHAT.value)
+    query_type = state.get("query_type", QueryType.UNKNOWN.value)
+    
+    logger.info("🎨 Generator: Creating %s output...", output_format)
+    
+    output_content = ""
+    output_url = None
+    
+    if output_format == OutputFormat.CHAT.value:
+        output_content = _generate_chat_response(state)
+        
+    elif output_format == OutputFormat.BULLET_SUMMARY.value:
+        output_content = _generate_bullet_summary(state)
+        
+    elif output_format == OutputFormat.SLIDES.value:
+        slides_content = _generate_slides_content(state)
+
+        # Check if user provided an email for sharing (from previous interaction)
+        user_share_email = state.get("user_share_email")
+
+        # Try to create actual Google Slides
+        result = _create_google_slides(slides_content, share_email=user_share_email)
+
+        output_url = result.get("url")
+        error = result.get("error")
+
+        if output_url:
+            output_content = f"✅ Created presentation: {output_url}\n\n"
+            output_content += f"**{slides_content.get('title', 'Presentation')}**\n\n"
+            output_content += "Slides:\n"
+            for i, slide in enumerate(slides_content.get("slides", []), 1):
+                output_content += f"  {i}. {slide.get('title', 'Untitled')}\n"
+
+            # Add sharing status
+            if result.get("shared"):
+                share_email = user_share_email or _get_share_email()
+                output_content += f"\n✅ Shared with: {share_email}\n"
+                output_content += "You should receive an email notification with access to the presentation."
+            elif result.get("share_email_needed"):
+                output_content += "\n⚠️ **Action Required**: The presentation was created but I couldn't share it with you.\n"
+                output_content += "Please provide your email address so I can share the presentation with you.\n"
+                output_content += "\n_You can also set the `GOOGLE_SLIDES_SHARE_EMAIL` environment variable to avoid this in the future._"
+        else:
+            # Couldn't create slides, return the structure
+            logger.warning("   Could not create slides: %s", error)
+            output_content = f"**{slides_content.get('title', 'Presentation')}**\n"
+            output_content += f"_{slides_content.get('subtitle', '')}_\n\n"
+
+            for i, slide in enumerate(slides_content.get("slides", []), 1):
+                output_content += f"### Slide {i}: {slide.get('title', 'Untitled')}\n"
+                for bullet in slide.get("bullets", []):
+                    output_content += f"• {bullet}\n"
+                output_content += "\n"
+
+            if error:
+                output_content += f"\n_Note: {error}_"
+    
+    elif output_format == OutputFormat.DOCUMENT.value:
+        # For now, generate as extended chat response
+        output_content = _generate_chat_response(state)
+        output_content = "# Research Report\n\n" + output_content
+    
+    logger.info("   Generated %d characters of content", len(output_content))
+    
+    return {
+        "output_content": output_content,
+        "output_url": output_url,
+    }

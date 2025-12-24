@@ -1,0 +1,25 @@
+{
+  "name": "google-slides-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Google Slides integration with Strategic Research Copilot (using @bohachu/google-slides-mcp)",
+  "type": "module",
+  "scripts": {
+    "start": "google-slides-mcp",
+    "postinstall": "echo 'Remember to add your service account key to keys/google_service_account_key.json'"
+  },
+  "keywords": [
+    "mcp",
+    "google-slides",
+    "model-context-protocol",
+    "ai",
+    "presentations"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@bohachu/google-slides-mcp": "^1.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

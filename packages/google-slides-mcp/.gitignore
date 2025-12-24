@@ -1,0 +1,10 @@
+# Service account credentials - NEVER commit these
+keys/
+*.json
+!package.json
+
+# Node modules
+node_modules/
+
+# Backup folder (contains old implementation)
+backup/
