@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     # API Configuration
-    api_title: str = "Strategic Research Copilot API"
+    api_title: str = "SlideKick API"
     api_version: str = "1.0.0"
     debug: bool = False
     environment: Literal["development", "staging", "production"] = "development"

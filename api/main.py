@@ -53,7 +53,7 @@ settings = get_settings()
 
 app = FastAPI(
     title=settings.api_title,
-    description="AI-powered research analyst with knowledge graph, financial data, and web search capabilities",
+    description="Research that kicks! AI sidekick with knowledge graphs, self-reflection, and killer insights.",
     version=settings.api_version,
     docs_url="/docs",
     redoc_url="/redoc",

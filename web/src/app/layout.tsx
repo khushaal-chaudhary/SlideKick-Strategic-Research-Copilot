@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Strategic Research Copilot | AI-Powered Research Analyst",
+  title: "SlideKick | Research That Kicks!",
   description:
-    "An AI research analyst that builds knowledge graphs, performs multi-step strategic analysis with self-reflection, and delivers insights. Built with LangGraph, Neo4j, and Next.js.",
+    "Your AI research sidekick that digs through knowledge graphs, crunches data, argues with itself, and delivers killer insights. No coffee breaks needed.",
   keywords: [
     "AI research",
     "knowledge graph",
@@ -24,6 +24,7 @@ export const metadata: Metadata = {
     "strategic analysis",
     "RAG",
     "agentic AI",
+    "SlideKick",
   ],
   authors: [
     {
@@ -35,16 +36,16 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    title: "Strategic Research Copilot",
+    title: "SlideKick - Research That Kicks!",
     description:
-      "AI-powered research analyst with knowledge graphs and self-reflection",
-    siteName: "Strategic Research Copilot",
+      "AI research sidekick with knowledge graphs, self-reflection, and killer insights",
+    siteName: "SlideKick",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Strategic Research Copilot",
+    title: "SlideKick - Research That Kicks!",
     description:
-      "AI-powered research analyst with knowledge graphs and self-reflection",
+      "AI research sidekick with knowledge graphs, self-reflection, and killer insights",
   },
   robots: {
     index: true,

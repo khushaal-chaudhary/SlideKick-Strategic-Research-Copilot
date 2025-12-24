@@ -18,7 +18,7 @@ export function Hero() {
             transition={{ duration: 0.5 }}
           >
             <Badge variant="secondary" className="mb-4">
-              AI Research Agent
+              {SITE_CONFIG.tagline}
             </Badge>
           </motion.div>
 
@@ -28,7 +28,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl"
           >
-            {SITE_CONFIG.name}
+            {SITE_CONFIG.name} <span className="inline-block animate-bounce">⚡</span>
           </motion.h1>
 
           <motion.p
@@ -83,10 +83,11 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.5 }}
             className="mt-8 text-sm text-muted-foreground"
           >
-            Demo knowledge graph built from{" "}
+            Currently loaded with{" "}
             <span className="font-medium text-foreground">
               Microsoft Shareholder Letters (2020-2024)
             </span>
+            {" "}— clone the repo to kick your own data!
           </motion.p>
         </div>
       </div>

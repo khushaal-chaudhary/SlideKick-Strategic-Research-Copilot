@@ -107,17 +107,18 @@ class HealthResponse(BaseModel):
     """Health check response."""
 
     status: str = "healthy"
-    service: str = "strategic-research-copilot"
+    service: str = "slidekick"
     version: str = "1.0.0"
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+    model_loaded: bool = True  # Will be set dynamically when real agent is integrated
 
 
 class APIInfoResponse(BaseModel):
     """Root API information response."""
 
-    name: str = "Strategic Research Copilot API"
+    name: str = "SlideKick API"
     version: str = "1.0.0"
-    description: str = "AI research analyst with multi-step reasoning"
+    description: str = "Research that kicks! AI sidekick with knowledge graphs and self-reflection."
     author: str = "Khushaal Chaudhary"
     documentation: str = "/docs"
 

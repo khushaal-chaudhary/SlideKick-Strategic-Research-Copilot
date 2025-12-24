@@ -1,236 +1,224 @@
-# Strategic Research Copilot
+# SlideKick ⚡
 
-An AI research analyst that builds knowledge graphs from company documents, performs multi-step strategic analysis with self-reflection, and delivers findings as Google Slides presentations.
+**Research that kicks!** Your AI sidekick that digs through knowledge graphs, crunches data, argues with itself, and delivers killer insights. No coffee breaks needed.
 
 **Created by [Khushaal Chaudhary](https://khushaalchaudhary.com)** | [LinkedIn](https://linkedin.com/in/khushaal-chaudhary) | [GitHub](https://github.com/khushaal-chaudhary)
 
 > **Live Demo:** [Coming Soon] | **Knowledge Graph:** Built from Microsoft Shareholder Letters (2020-2024)
 
-## 🎯 What Makes This Genuinely Agentic
+## 🎯 What Makes This Actually Smart
 
-Unlike simple RAG pipelines, this system makes **real decisions at runtime**:
+Unlike basic RAG pipelines that just retrieve and regurgitate, SlideKick makes **real decisions at runtime**:
 
 ```
-User: "How should we respond to Google's AI announcements?"
+You: "How should we clap back at Google's AI moves?"
 
 ┌─────────────────────────────────────────────────────────────────┐
-│ PLANNER: Decompose into research steps                          │
-│   → Step 1: Get our AI strategy from graph                      │
-│   → Step 2: Get competitor moves from graph                     │
-│   → Step 3: Identify gaps                                       │
-│   → Step 4: Generate recommendations                            │
+│ 🧭 PLANNER: Breaking this down...                               │
+│   → Step 1: Dig up our AI strategy from the graph               │
+│   → Step 2: Scout competitor moves                              │
+│   → Step 3: Find the gaps they're missing                       │
+│   → Step 4: Cook up some recommendations                        │
 ├─────────────────────────────────────────────────────────────────┤
-│ RETRIEVER: Execute Step 1                                       │
+│ 🦮 RETRIEVER: Fetching Step 1...                                │
 │   → Graph query: 23 AI-related entities found ✓                 │
 ├─────────────────────────────────────────────────────────────────┤
-│ RETRIEVER: Execute Step 2                                       │
+│ 🦮 RETRIEVER: Fetching Step 2...                                │
 │   → Graph query: Only 5 Google entities ⚠️                      │
-│   → DECISION: Sparse data → trigger web search                  │
-│   → Web search: 12 additional results                           │
+│   → Hmm, sparse data. Let me hit the web...                     │
+│   → Web search: 12 fresh results found!                         │
 ├─────────────────────────────────────────────────────────────────┤
-│ ANALYZER: Synthesize findings                                   │
-│   → Found 3 competitive gaps                                    │
-│   → Generated strategic recommendations                         │
+│ 🔬 ANALYZER: Connecting the dots...                             │
+│   → Spotted 3 competitive gaps                                  │
+│   → Strategic recommendations forming...                        │
 ├─────────────────────────────────────────────────────────────────┤
-│ CRITIC: Evaluate quality                                        │
-│   → Confidence: 0.72 (below threshold)                          │
-│   → DECISION: Need more data on "cloud AI" specifically         │
-│   → LOOP BACK to retriever with refined query                   │
+│ 🎭 CRITIC: Let me be honest here...                             │
+│   → Confidence: 0.72 (not good enough)                          │
+│   → Need deeper data on "cloud AI" specifically                 │
+│   → Sending retriever back for more! 🔄                         │
 ├─────────────────────────────────────────────────────────────────┤
-│ CRITIC: Re-evaluate                                             │
+│ 🎭 CRITIC: Much better now!                                     │
 │   → Confidence: 0.91 ✓                                          │
-│   → Proceed to generation                                       │
+│   → Ship it!                                                    │
 ├─────────────────────────────────────────────────────────────────┤
-│ GENERATOR: Create deliverable                                   │
-│   → DECISION: Strategic question → slides (not chat)            │
-│   → Call Google Slides MCP                                      │
-│   → Return shareable link                                       │
+│ ⚡ GENERATOR: Time to create magic...                           │
+│   → Strategic question detected → making slides                 │
+│   → Calling Google Slides API...                                │
+│   → Done! Here's your shareable link 🔗                         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## 🏗️ Architecture
+## 🏗️ How The Magic Works
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CLI / API                                       │
+│                           WEB UI / API                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         LANGGRAPH ORCHESTRATOR                               │
+│                         LANGGRAPH BRAIN                                      │
 │                                                                              │
 │   ┌─────────┐     ┌───────────┐     ┌──────────┐     ┌───────────┐         │
-│   │ PLANNER │ ──▶ │ RETRIEVER │ ──▶ │ ANALYZER │ ──▶ │  CRITIC   │         │
+│   │ 🧭      │ ──▶ │ 🦮        │ ──▶ │ 🔬       │ ──▶ │ 🎭        │         │
+│   │ Planner │     │ Retriever │     │ Analyzer │     │ Critic    │         │
 │   └─────────┘     └───────────┘     └──────────┘     └───────────┘         │
 │        │               │                                   │                │
-│        │               │    ┌──────────────────────────────┘                │
-│        │               │    │                                               │
-│        │               │    ▼                                               │
-│        │               │  ┌─────────────────────────────────┐               │
-│        │               │  │         DECISION POINT          │               │
-│        │               │  │  ┌─────────┐    ┌───────────┐  │               │
-│        │               │  │  │ ENOUGH? │    │ LOOP BACK │  │               │
-│        │               │  │  └────┬────┘    └─────┬─────┘  │               │
-│        │               │  │       │               │        │               │
-│        │               │  └───────┼───────────────┼────────┘               │
-│        │               │          │               │                         │
-│        │               ◀──────────┼───────────────┘                         │
-│        │                          ▼                                         │
+│        │               │         ┌─────────────────────────┘                │
+│        │               │         │                                          │
+│        │               │         ▼                                          │
+│        │               │    ┌──────────────┐                                │
+│        │               │    │ Good enough? │                                │
+│        │               │    │  YES │ NO    │                                │
+│        │               │    └──────┼───────┘                                │
+│        │               │           │                                        │
+│        │               ◀───────────┘ (Loop back if NO!)                     │
+│        │                                                                    │
 │        │                    ┌───────────┐     ┌───────────┐                │
-│        │                    │ GENERATOR │ ──▶ │ RESPONDER │                │
+│        │                    │ ⚡        │ ──▶ │ 📤        │                │
+│        │                    │ Generator │     │ Responder │                │
 │        │                    └───────────┘     └───────────┘                │
-│        │                          │                                         │
-│        │                          ▼                                         │
-│        │                    ┌───────────┐                                   │
-│        │                    │    MCP    │                                   │
-│        │                    │  SERVERS  │                                   │
-│        │                    └───────────┘                                   │
 └────────┼────────────────────────────────────────────────────────────────────┘
          │
          ▼
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
 │   NEO4J GRAPH   │  │  GOOGLE SLIDES  │  │ FINANCIAL DATA  │
-│   + VECTORS     │  │   MCP (Existing)│  │ MCP (TypeScript)│
+│   + VECTORS     │  │    (MCP)        │  │    (MCP)        │
 └─────────────────┘  └─────────────────┘  └─────────────────┘
 ```
 
 ## 📁 Project Structure
 
 ```
-strategic-research-copilot/
+slidekick/
 │
-├── web/                             # Next.js - Web Interface
+├── web/                             # Next.js - Pretty Face
 │   ├── app/                         # App Router pages
 │   ├── components/                  # React components
 │   └── package.json
 │
-├── api/                             # FastAPI - Backend for HF Spaces
-│   ├── main.py                      # API endpoints
+├── api/                             # FastAPI - Speed Demon
+│   ├── main.py                      # API endpoints + SSE
 │   ├── Dockerfile                   # HF Spaces deployment
 │   └── requirements.txt
 │
 ├── packages/
 │   │
-│   ├── agent/                       # Python - Core LangGraph Agent
+│   ├── agent/                       # Python - The Brains
 │   │   ├── src/copilot/
-│   │   │   ├── config/              # Settings & environment
+│   │   │   ├── config/              # Settings & secrets
 │   │   │   ├── graph/               # Neo4j operations
 │   │   │   ├── agent/               # LangGraph workflow
-│   │   │   │   ├── state.py         # Research state definition
-│   │   │   │   ├── nodes/           # Individual agent nodes
-│   │   │   │   │   ├── planner.py   # Decomposes query into steps
-│   │   │   │   │   ├── retriever.py # Gets data (graph/vector/web)
-│   │   │   │   │   ├── analyzer.py  # Synthesizes insights
-│   │   │   │   │   ├── critic.py    # Self-reflection & quality check
-│   │   │   │   │   └── generator.py # Creates deliverables
-│   │   │   │   ├── workflow.py      # LangGraph construction
-│   │   │   │   └── decisions.py     # Routing logic
-│   │   │   ├── tools/               # Tool definitions
+│   │   │   │   ├── state.py         # Research state
+│   │   │   │   ├── nodes/           # The squad
+│   │   │   │   │   ├── planner.py   # 🧭 Game plan maker
+│   │   │   │   │   ├── retriever.py # 🦮 Data fetcher
+│   │   │   │   │   ├── analyzer.py  # 🔬 Pattern finder
+│   │   │   │   │   ├── critic.py    # 🎭 Quality cop
+│   │   │   │   │   └── generator.py # ⚡ Magic maker
+│   │   │   │   └── workflow.py      # LangGraph wiring
 │   │   │   └── interfaces/          # CLI
-│   │   ├── notebooks/               # Development & testing
 │   │   └── pyproject.toml
 │   │
-│   ├── mcp-financial/               # TypeScript - Financial Data MCP
-│   │   └── src/index.ts             # Alpha Vantage integration
+│   ├── mcp-financial/               # Alpha Vantage MCP
 │   │
-│   └── google-slides-mcp/           # Google Slides MCP Server
+│   └── google-slides-mcp/           # Slide Wizard MCP
 │
-├── data/                            # Sample documents
-└── README.md
+└── data/                            # Sample documents
 ```
 
 ## 🚀 Quick Start
 
 ```bash
-# 1. Setup Python agent
+# 1. Setup the brain
 cd packages/agent
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -e ".[dev]"
 
-# 2. Configure environment
+# 2. Feed it your secrets
 cp .env.example .env
-# Edit .env with your credentials:
-# - GOOGLE_API_KEY (for LLM)
-# - NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD (for knowledge graph)
+# Edit .env with:
+# - LLM_PROVIDER=ollama (or gemini)
+# - LLM_MODEL=qwen2.5:7b
+# - NEO4J credentials
 # - TAVILY_API_KEY (for web search)
-# - ALPHA_VANTAGE_API_KEY (for financial data - free at alphavantage.co)
+# - ALPHA_VANTAGE_API_KEY (free at alphavantage.co)
 
-# 3. Run the agent
+# 3. Let it rip!
 copilot chat
 ```
 
-## 💰 Financial Data Capabilities
+## 💰 Money Talks: Financial Data
 
-The agent can retrieve real-time financial data using the Alpha Vantage API:
+SlideKick can fetch real-time financial data and sound smart about stocks:
 
 ```
-User: "What is Microsoft's P/E ratio and how does it compare to Apple?"
+You: "What's Microsoft's P/E and how does it stack up against Apple?"
 
 ┌─────────────────────────────────────────────────────────────────┐
-│ PLANNER: Classify as FINANCIAL query                            │
-│   → Use FINANCIAL_FIRST retrieval strategy                      │
+│ 🧭 PLANNER: Financial question detected!                        │
+│   → Using MONEY_FIRST strategy                                  │
 ├─────────────────────────────────────────────────────────────────┤
-│ RETRIEVER: Fetch financial data                                 │
-│   → GET company overview for MSFT                               │
-│   → GET company overview for AAPL                               │
-│   → P/E, EPS, profit margin, market cap                         │
+│ 🦮 RETRIEVER: Hitting the markets...                            │
+│   → GET company overview: MSFT                                  │
+│   → GET company overview: AAPL                                  │
+│   → P/E, EPS, margins, market cap - all here!                   │
 ├─────────────────────────────────────────────────────────────────┤
-│ ANALYZER: Synthesize financial insights                         │
-│   → Compare valuation metrics                                   │
-│   → Generate investment insights                                │
+│ 🔬 ANALYZER: Crunching numbers...                               │
+│   → Comparing valuations                                        │
+│   → Spotting investment angles                                  │
 ├─────────────────────────────────────────────────────────────────┤
-│ GENERATOR: Create response with financial data                  │
+│ ⚡ GENERATOR: Here's the scoop...                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Available Financial Data:**
-- Company overview and fundamentals
+**What it knows:**
+- Company fundamentals (the boring but important stuff)
 - Stock quotes (price, change, volume)
-- Income statement data
-- News sentiment analysis
-- Multi-company comparisons
+- Income statements
+- News sentiment (what people are saying)
+- Cross-company comparisons
 
-**Setup:** Get a free API key at [alphavantage.co](https://www.alphavantage.co/support/#api-key)
+**Get your free key:** [alphavantage.co](https://www.alphavantage.co/support/#api-key)
 
-## 📚 Knowledge Graph
+## 📚 The Knowledge Graph
 
-The demo knowledge graph is built from **Microsoft Shareholder Letters (2020-2024)**, containing:
-- Company strategy and vision
-- Product announcements and launches
-- Financial highlights and metrics
-- Competitive landscape mentions
+Demo is loaded with **Microsoft Shareholder Letters (2020-2024)** covering:
+- Strategy and vision stuff
+- Product launches and announcements
+- Financial highlights
+- Competitive landscape intel
 
-**Want to use your own data?** Clone this repo and:
-1. Add your documents to `data/`
-2. Run the ingestion pipeline to build your knowledge graph
-3. Update Neo4j connection in `.env`
+**Want to use your own data?** Fork this repo and:
+1. Drop your docs in `data/`
+2. Run the ingestion pipeline
+3. Update Neo4j creds in `.env`
+4. Start kicking!
 
-## 🔧 Technologies
+## 🔧 The Tech Stack
 
-| Technology | Purpose | Why It's Needed |
-|------------|---------|-----------------|
-| **LangGraph** | Agent orchestration | Multi-step research with loops and decisions |
-| **Neo4j** | Knowledge graph | Entity relationships for strategic analysis |
-| **Next.js** | Web interface | Modern React framework with SSR |
-| **FastAPI** | Backend API | High-performance Python API |
-| **LangSmith** | Observability | Debug complex agent traces |
-| **MCP** | Tool integration | Google Slides, financial data APIs |
-| **Alpha Vantage** | Financial data | Stock quotes, fundamentals, income statements |
-| **Tavily** | Web search | Real-time information retrieval |
-| **Hugging Face Spaces** | API hosting | Free ML/AI model deployment |
-| **Vercel** | Frontend hosting | Edge-optimized React deployment |
+| Tech | Role | Why We Need It |
+|------|------|----------------|
+| **LangGraph** | Brain Power | Multi-step thinking with loops |
+| **Neo4j** | Memory Palace | Connecting the dots |
+| **Next.js** | Pretty Face | Sleek React frontend |
+| **FastAPI** | Speed Demon | Blazing Python backend |
+| **Ollama** | Local Brain | Run LLMs on your machine |
+| **LangSmith** | X-Ray Vision | Debug the AI's thoughts |
+| **Alpha Vantage** | Money Talks | Real-time financials |
+| **Tavily** | Web Crawler | Fresh info from the web |
+| **HF Spaces** | Cloud Home | API hosting |
+| **Vercel** | Edge Runner | Frontend hosting |
 
-## 📊 LangSmith Traces
-
-All agent runs are traced for debugging and evaluation:
+## 📊 Watch The AI Think (LangSmith)
 
 ```
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=your_key
-LANGCHAIN_PROJECT=strategic-research-copilot
+LANGCHAIN_PROJECT=slidekick
 ```
 
 ## 📝 License
 
-MIT
+MIT - Go wild! 🎉

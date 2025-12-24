@@ -1,6 +1,6 @@
-# Strategic Research Copilot API
+# SlideKick API ⚡
 
-FastAPI backend for the Strategic Research Copilot, designed for deployment on Hugging Face Spaces.
+The speed demon backend for SlideKick, designed for deployment on Hugging Face Spaces.
 
 ## Features
 
