@@ -33,13 +33,21 @@ class Settings(BaseSettings):
     # -------------------------------------------------------------------------
     # LLM Provider Selection
     # -------------------------------------------------------------------------
-    llm_provider: Literal["gemini", "ollama", "openai"] = Field(
-        default="gemini",
-        description="Which LLM provider to use: gemini, ollama, or openai",
+    llm_provider: Literal["gemini", "ollama", "openai", "groq"] = Field(
+        default="groq",
+        description="Which LLM provider to use: gemini, ollama, openai, or groq",
     )
     llm_model: str = Field(
-        default="gemini-1.5-flash",
-        description="Model name (e.g., gemini-1.5-flash, llama3.1:8b, gpt-4o-mini)",
+        default="llama-3.3-70b-versatile",
+        description="Model name (e.g., gemini-1.5-flash, qwen2.5:7b, gpt-4o-mini, llama-3.3-70b-versatile)",
+    )
+    llm_fallback_provider: Literal["ollama", "none"] = Field(
+        default="ollama",
+        description="Fallback LLM provider if primary fails (rate limit, etc.)",
+    )
+    llm_fallback_model: str = Field(
+        default="qwen2.5:7b",
+        description="Fallback model name for Ollama",
     )
     llm_temperature: float = Field(default=0.0)
 
@@ -60,6 +68,11 @@ class Settings(BaseSettings):
     # OpenAI (if llm_provider=openai)
     # -------------------------------------------------------------------------
     openai_api_key: SecretStr | None = Field(default=None)
+
+    # -------------------------------------------------------------------------
+    # Groq (if llm_provider=groq)
+    # -------------------------------------------------------------------------
+    groq_api_key: SecretStr | None = Field(default=None)
 
     # -------------------------------------------------------------------------
     # Tavily (Web Search)
@@ -124,6 +137,12 @@ class Settings(BaseSettings):
     def openai_api_key_str(self) -> str:
         if self.openai_api_key:
             return self.openai_api_key.get_secret_value()
+        return ""
+
+    @property
+    def groq_api_key_str(self) -> str:
+        if self.groq_api_key:
+            return self.groq_api_key.get_secret_value()
         return ""
 
     @property

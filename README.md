@@ -1,3 +1,14 @@
+---
+title: SlideKick
+emoji: ⚡
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+license: mit
+app_port: 7860
+---
+
 # SlideKick ⚡
 
 **Research that kicks!** Your AI sidekick that digs through knowledge graphs, crunches data, argues with itself, and delivers killer insights. No coffee breaks needed.

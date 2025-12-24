@@ -31,6 +31,7 @@ dependencies = [
     "google-generativeai>=0.8.0",
     "langchain-ollama>=0.2.0",         # For local Ollama
     "langchain-openai>=0.2.0",         # For OpenAI
+    "langchain-groq>=0.2.0",           # For Groq (fast inference)
     
     # Embeddings & Search
     "sentence-transformers>=3.0.0",

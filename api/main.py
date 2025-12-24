@@ -1,13 +1,17 @@
 """
-Strategic Research Copilot API
+SlideKick API - Strategic Research Copilot
 
 FastAPI server for Hugging Face Spaces deployment.
 Provides endpoints for the web interface to interact with the research agent.
+
+Uses the real LangGraph agent with Groq LLM + Ollama fallback.
 """
 
 import asyncio
 import json
 import logging
+import os
+import sys
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime
@@ -34,6 +38,20 @@ from schemas import (
     RetrievalEvent,
     SessionState,
 )
+
+# Add agent package to path if running in Docker/HF Spaces
+agent_path = os.path.join(os.path.dirname(__file__), "..", "packages", "agent", "src")
+if os.path.exists(agent_path):
+    sys.path.insert(0, agent_path)
+
+# Try to import the real agent
+try:
+    from copilot.agent import create_copilot, ResearchState
+    from copilot.llm import activate_fallback
+    AGENT_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"Agent not available, using demo mode: {e}")
+    AGENT_AVAILABLE = False
 
 # =============================================================================
 # Logging Configuration
@@ -82,7 +100,10 @@ sessions: dict[str, SessionState] = {}
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint for container orchestration."""
-    return HealthResponse(version=settings.api_version)
+    return HealthResponse(
+        version=settings.api_version,
+        model_loaded=AGENT_AVAILABLE,
+    )
 
 
 @app.get("/", response_model=APIInfoResponse)
@@ -156,172 +177,18 @@ async def stream_events(session_id: str):
             }
 
             # =================================================================
-            # Demo Flow: Simulate agent execution
-            # In production, this integrates with the actual LangGraph agent
+            # Real Agent Flow
             # =================================================================
-
-            # Node 1: Planner
-            yield await _emit_node_event(
-                session_id,
-                AgentNode.PLANNER,
-                "start",
-                "Analyzing query and extracting key entities...",
-            )
-            await asyncio.sleep(1.5)
-            yield await _emit_node_event(
-                session_id,
-                AgentNode.PLANNER,
-                "complete",
-                "Query analyzed. Identified 3 entities: Microsoft, AI Strategy, Annual Reports",
-                {"entities": ["Microsoft", "AI Strategy", "Annual Reports"]},
-            )
-
-            # Progress update
-            yield await _emit_progress(session_id, 1, 3, "Starting data retrieval...")
-
-            # Node 2: Retriever
-            yield await _emit_node_event(
-                session_id,
-                AgentNode.RETRIEVER,
-                "start",
-                "Querying knowledge graph...",
-            )
-            await asyncio.sleep(2.0)
-            yield await _emit_retrieval(
-                session_id,
-                "graph",
-                "Microsoft AI investments 2020-2024",
-                8,
-                [
-                    {"entity": "Azure AI", "relationship": "major investment"},
-                    {"entity": "OpenAI Partnership", "year": "2023"},
-                ],
-            )
-            yield await _emit_node_event(
-                session_id,
-                AgentNode.RETRIEVER,
-                "complete",
-                "Retrieved 8 relevant entities from knowledge graph",
-            )
-
-            # Node 3: Analyzer
-            yield await _emit_node_event(
-                session_id,
-                AgentNode.ANALYZER,
-                "start",
-                "Synthesizing retrieved information...",
-            )
-            await asyncio.sleep(1.8)
-            yield await _emit_insight(
-                session_id,
-                "strategic_theme",
-                "AI-First Strategy",
-                "Microsoft has shifted to an AI-first approach across all product lines",
-                0.92,
-            )
-            yield await _emit_insight(
-                session_id,
-                "investment_pattern",
-                "Cloud + AI Integration",
-                "Azure AI services revenue grew 40% YoY in 2024",
-                0.88,
-            )
-            yield await _emit_node_event(
-                session_id,
-                AgentNode.ANALYZER,
-                "complete",
-                "Analysis complete. Generated 2 key insights.",
-            )
-
-            # Node 4: Critic
-            yield await _emit_node_event(
-                session_id, AgentNode.CRITIC, "start", "Evaluating research quality..."
-            )
-            await asyncio.sleep(1.2)
-            yield await _emit_decision(
-                session_id,
-                "sufficient",
-                "Quality score: 0.85. Threshold met.",
-                "Proceeding to generate response",
-            )
-            yield await _emit_node_event(
-                session_id,
-                AgentNode.CRITIC,
-                "complete",
-                "Quality assessment: 85% - proceeding to generation",
-                {"quality_score": 0.85},
-            )
-
-            # Progress update
-            yield await _emit_progress(
-                session_id, 2, 3, "Generating response...", 0.85
-            )
-
-            # Node 5: Generator
-            yield await _emit_node_event(
-                session_id,
-                AgentNode.GENERATOR,
-                "start",
-                "Generating comprehensive response...",
-            )
-            await asyncio.sleep(2.0)
-            yield await _emit_output(
-                session_id,
-                "chat",
-                "Microsoft's AI strategy has evolved significantly from 2020 to 2024...",
-            )
-            yield await _emit_node_event(
-                session_id, AgentNode.GENERATOR, "complete", "Response generated"
-            )
-
-            # Node 6: Responder
-            yield await _emit_node_event(
-                session_id, AgentNode.RESPONDER, "start", "Formatting final response..."
-            )
-            await asyncio.sleep(0.8)
-
-            # Final response
-            final_response = """## Microsoft's AI Strategy Evolution (2020-2024)
-
-### Key Findings
-
-**1. Strategic Partnership with OpenAI**
-Microsoft's $10B+ investment in OpenAI has become the cornerstone of their AI strategy, integrating GPT models across their product suite.
-
-**2. Azure AI Services Expansion**
-- Azure AI revenue grew 40% YoY in 2024
-- Launched Azure OpenAI Service for enterprise customers
-- Copilot integration across Microsoft 365
-
-**3. Product Integration**
-- GitHub Copilot reached 1M+ paid subscribers
-- Microsoft 365 Copilot launched for enterprise
-- Bing Chat (now Copilot) reimagined search
-
-### Timeline
-- **2020**: Initial OpenAI partnership, focus on Azure ML
-- **2021**: GitHub Copilot preview launched
-- **2022**: DALL-E integration, Azure OpenAI preview
-- **2023**: $10B OpenAI investment, Copilot everywhere
-- **2024**: Copilot+ PCs, AI infrastructure expansion
-
-*Sources: Microsoft Shareholder Letters 2020-2024*"""
-
-            yield await _emit_final_response(
-                session_id,
-                final_response,
-                0.85,
-                2,
-                ["knowledge_graph", "shareholder_letters"],
-            )
-
-            yield await _emit_node_event(
-                session_id, AgentNode.RESPONDER, "complete", "Response delivered"
-            )
+            if AGENT_AVAILABLE:
+                async for event in _run_real_agent(session_id, session.query):
+                    yield event
+            else:
+                # Demo flow when agent is not available
+                async for event in _run_demo_agent(session_id, session.query):
+                    yield event
 
             # Complete event
             session.status = "completed"
-            session.final_response = final_response
             yield {
                 "event": EventType.COMPLETE.value,
                 "data": json.dumps(
@@ -350,6 +217,377 @@ Microsoft's $10B+ investment in OpenAI has become the cornerstone of their AI st
             }
 
     return EventSourceResponse(event_generator())
+
+
+# =============================================================================
+# Real Agent Execution
+# =============================================================================
+
+
+async def _run_real_agent(session_id: str, query: str) -> AsyncGenerator[dict, None]:
+    """
+    Run the real LangGraph agent and yield SSE events.
+
+    The agent streams state updates as it progresses through nodes.
+    We convert these to our SSE event format.
+    """
+    session = sessions[session_id]
+
+    try:
+        # Create the copilot
+        copilot = create_copilot()
+        copilot.configure(max_iterations=settings.max_iterations)
+
+        # Map LangGraph node names to our AgentNode enum
+        node_mapping = {
+            "planner": AgentNode.PLANNER,
+            "retriever": AgentNode.RETRIEVER,
+            "analyzer": AgentNode.ANALYZER,
+            "critic": AgentNode.CRITIC,
+            "generator": AgentNode.GENERATOR,
+            "responder": AgentNode.RESPONDER,
+        }
+
+        last_state = {}
+
+        # Run in thread pool since LangGraph is sync
+        def run_agent():
+            results = []
+            for event in copilot.stream(query, thread_id=session_id):
+                results.append(event)
+            return results
+
+        # Execute in thread pool
+        loop = asyncio.get_event_loop()
+        events = await loop.run_in_executor(None, run_agent)
+
+        for event in events:
+            # LangGraph events are dicts with node name as key
+            for node_name, state in event.items():
+                if node_name in node_mapping:
+                    node = node_mapping[node_name]
+
+                    # Emit node start
+                    yield await _emit_node_event(
+                        session_id,
+                        node,
+                        "start",
+                        f"Processing {node_name}...",
+                    )
+
+                    # Extract relevant data from state
+                    if node_name == "planner":
+                        entities = state.get("entities_of_interest", [])
+                        yield await _emit_node_event(
+                            session_id,
+                            node,
+                            "complete",
+                            f"Identified {len(entities)} entities: {', '.join(entities[:3])}",
+                            {"entities": entities},
+                        )
+
+                    elif node_name == "retriever":
+                        graph_results = state.get("graph_results", [])
+                        web_results = state.get("web_results", [])
+
+                        if graph_results:
+                            yield await _emit_retrieval(
+                                session_id,
+                                "graph",
+                                query,
+                                len(graph_results),
+                                graph_results[:3],
+                            )
+
+                        if web_results:
+                            yield await _emit_retrieval(
+                                session_id,
+                                "web",
+                                query,
+                                len(web_results),
+                                web_results[:3],
+                            )
+
+                        yield await _emit_node_event(
+                            session_id,
+                            node,
+                            "complete",
+                            f"Retrieved {len(graph_results)} graph + {len(web_results)} web results",
+                        )
+
+                    elif node_name == "analyzer":
+                        insights = state.get("insights", [])
+                        for insight in insights[:3]:
+                            yield await _emit_insight(
+                                session_id,
+                                insight.get("category", "insight"),
+                                insight.get("title", "Finding"),
+                                insight.get("description", ""),
+                                insight.get("confidence", 0.8),
+                            )
+
+                        yield await _emit_node_event(
+                            session_id,
+                            node,
+                            "complete",
+                            f"Generated {len(insights)} insights",
+                        )
+
+                    elif node_name == "critic":
+                        quality = state.get("quality_score", 0.0)
+                        needs_refinement = state.get("needs_refinement", False)
+                        refinement_type = state.get("refinement_type", "none")
+                        iteration = state.get("iteration", 1)
+
+                        decision = "sufficient" if not needs_refinement else "refine"
+                        next_action = "Generate response" if not needs_refinement else f"Loop back ({refinement_type})"
+
+                        yield await _emit_decision(
+                            session_id,
+                            decision,
+                            f"Quality: {quality:.0%}, Iteration: {iteration}",
+                            next_action,
+                        )
+
+                        yield await _emit_progress(
+                            session_id,
+                            iteration,
+                            state.get("max_iterations", 3),
+                            next_action,
+                            quality,
+                        )
+
+                        yield await _emit_node_event(
+                            session_id,
+                            node,
+                            "complete",
+                            f"Quality: {quality:.0%}",
+                            {"quality_score": quality},
+                        )
+
+                    elif node_name == "generator":
+                        content = state.get("output_content", "")
+                        yield await _emit_output(
+                            session_id,
+                            state.get("output_format", "chat"),
+                            content[:100] + "..." if len(content) > 100 else content,
+                        )
+
+                        yield await _emit_node_event(
+                            session_id,
+                            node,
+                            "complete",
+                            "Content generated",
+                        )
+
+                    elif node_name == "responder":
+                        final = state.get("final_response", "")
+                        session.final_response = final
+
+                        yield await _emit_final_response(
+                            session_id,
+                            final,
+                            state.get("quality_score", 0.8),
+                            state.get("iteration", 1),
+                            ["knowledge_graph", "llm"],
+                        )
+
+                        yield await _emit_node_event(
+                            session_id,
+                            node,
+                            "complete",
+                            "Response delivered",
+                        )
+
+                    # Update last state
+                    last_state.update(state)
+
+    except Exception as e:
+        logger.error(f"Agent error for session {session_id}: {e}")
+
+        # Try fallback if available
+        if AGENT_AVAILABLE:
+            logger.info("Attempting to activate fallback LLM...")
+            if activate_fallback():
+                # Retry with fallback
+                async for event in _run_real_agent(session_id, query):
+                    yield event
+                return
+
+        # If no fallback, re-raise
+        raise
+
+
+async def _run_demo_agent(session_id: str, query: str) -> AsyncGenerator[dict, None]:
+    """
+    Run the demo agent flow (simulated).
+
+    Used when the real agent is not available.
+    """
+    session = sessions[session_id]
+
+    # Node 1: Planner
+    yield await _emit_node_event(
+        session_id,
+        AgentNode.PLANNER,
+        "start",
+        "Analyzing query and extracting key entities...",
+    )
+    await asyncio.sleep(1.5)
+    yield await _emit_node_event(
+        session_id,
+        AgentNode.PLANNER,
+        "complete",
+        "Query analyzed. Identified 3 entities: Microsoft, AI Strategy, Annual Reports",
+        {"entities": ["Microsoft", "AI Strategy", "Annual Reports"]},
+    )
+
+    # Progress update
+    yield await _emit_progress(session_id, 1, 3, "Starting data retrieval...")
+
+    # Node 2: Retriever
+    yield await _emit_node_event(
+        session_id,
+        AgentNode.RETRIEVER,
+        "start",
+        "Querying knowledge graph...",
+    )
+    await asyncio.sleep(2.0)
+    yield await _emit_retrieval(
+        session_id,
+        "graph",
+        "Microsoft AI investments 2020-2024",
+        8,
+        [
+            {"entity": "Azure AI", "relationship": "major investment"},
+            {"entity": "OpenAI Partnership", "year": "2023"},
+        ],
+    )
+    yield await _emit_node_event(
+        session_id,
+        AgentNode.RETRIEVER,
+        "complete",
+        "Retrieved 8 relevant entities from knowledge graph",
+    )
+
+    # Node 3: Analyzer
+    yield await _emit_node_event(
+        session_id,
+        AgentNode.ANALYZER,
+        "start",
+        "Synthesizing retrieved information...",
+    )
+    await asyncio.sleep(1.8)
+    yield await _emit_insight(
+        session_id,
+        "strategic_theme",
+        "AI-First Strategy",
+        "Microsoft has shifted to an AI-first approach across all product lines",
+        0.92,
+    )
+    yield await _emit_insight(
+        session_id,
+        "investment_pattern",
+        "Cloud + AI Integration",
+        "Azure AI services revenue grew 40% YoY in 2024",
+        0.88,
+    )
+    yield await _emit_node_event(
+        session_id,
+        AgentNode.ANALYZER,
+        "complete",
+        "Analysis complete. Generated 2 key insights.",
+    )
+
+    # Node 4: Critic
+    yield await _emit_node_event(
+        session_id, AgentNode.CRITIC, "start", "Evaluating research quality..."
+    )
+    await asyncio.sleep(1.2)
+    yield await _emit_decision(
+        session_id,
+        "sufficient",
+        "Quality score: 0.85. Threshold met.",
+        "Proceeding to generate response",
+    )
+    yield await _emit_node_event(
+        session_id,
+        AgentNode.CRITIC,
+        "complete",
+        "Quality assessment: 85% - proceeding to generation",
+        {"quality_score": 0.85},
+    )
+
+    # Progress update
+    yield await _emit_progress(
+        session_id, 2, 3, "Generating response...", 0.85
+    )
+
+    # Node 5: Generator
+    yield await _emit_node_event(
+        session_id,
+        AgentNode.GENERATOR,
+        "start",
+        "Generating comprehensive response...",
+    )
+    await asyncio.sleep(2.0)
+    yield await _emit_output(
+        session_id,
+        "chat",
+        "Microsoft's AI strategy has evolved significantly from 2020 to 2024...",
+    )
+    yield await _emit_node_event(
+        session_id, AgentNode.GENERATOR, "complete", "Response generated"
+    )
+
+    # Node 6: Responder
+    yield await _emit_node_event(
+        session_id, AgentNode.RESPONDER, "start", "Formatting final response..."
+    )
+    await asyncio.sleep(0.8)
+
+    # Final response
+    final_response = """## Microsoft's AI Strategy Evolution (2020-2024)
+
+### Key Findings
+
+**1. Strategic Partnership with OpenAI**
+Microsoft's $10B+ investment in OpenAI has become the cornerstone of their AI strategy, integrating GPT models across their product suite.
+
+**2. Azure AI Services Expansion**
+- Azure AI revenue grew 40% YoY in 2024
+- Launched Azure OpenAI Service for enterprise customers
+- Copilot integration across Microsoft 365
+
+**3. Product Integration**
+- GitHub Copilot reached 1M+ paid subscribers
+- Microsoft 365 Copilot launched for enterprise
+- Bing Chat (now Copilot) reimagined search
+
+### Timeline
+- **2020**: Initial OpenAI partnership, focus on Azure ML
+- **2021**: GitHub Copilot preview launched
+- **2022**: DALL-E integration, Azure OpenAI preview
+- **2023**: $10B OpenAI investment, Copilot everywhere
+- **2024**: Copilot+ PCs, AI infrastructure expansion
+
+*Note: This is a demo response. Deploy with a real LLM for actual research.*
+
+*Sources: Microsoft Shareholder Letters 2020-2024*"""
+
+    session.final_response = final_response
+
+    yield await _emit_final_response(
+        session_id,
+        final_response,
+        0.85,
+        2,
+        ["demo_mode"],
+    )
+
+    yield await _emit_node_event(
+        session_id, AgentNode.RESPONDER, "complete", "Response delivered"
+    )
 
 
 # =============================================================================

@@ -1,35 +1,64 @@
-# FastAPI Backend for Hugging Face Spaces
-# Strategic Research Copilot API
+# SlideKick API - FastAPI Backend for Hugging Face Spaces
+# Strategic Research Copilot
 
+# =============================================================================
 # Web Framework
+# =============================================================================
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
 sse-starlette>=2.0.0  # Server-Sent Events
-
-# CORS for frontend communication
 python-multipart>=0.0.6
 
-# LangChain & LangGraph
-langchain>=0.1.0
-langchain-core>=0.1.0
-langchain-community>=0.0.20
-langgraph>=0.0.20
+# =============================================================================
+# LangChain & LangGraph (Core Agent Framework)
+# =============================================================================
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+langgraph>=0.2.0
+langsmith>=0.1.0
 
+# =============================================================================
 # LLM Providers
-langchain-google-genai>=1.0.0
-langchain-groq>=0.1.0
+# =============================================================================
+langchain-google-genai>=2.0.0
+google-generativeai>=0.8.0
+langchain-groq>=0.2.0           # Primary: Fast inference
+langchain-ollama>=0.2.0         # Fallback: Local model
+langchain-openai>=0.2.0         # Optional: OpenAI
 
-# Neo4j
-neo4j>=5.15.0
+# =============================================================================
+# Neo4j Knowledge Graph
+# =============================================================================
+langchain-neo4j>=0.2.0
+neo4j>=5.0.0
 
+# =============================================================================
+# Embeddings & Search
+# =============================================================================
+sentence-transformers>=3.0.0
+
+# =============================================================================
+# Web Search (Tavily)
+# =============================================================================
+tavily-python>=0.5.0
+
+# =============================================================================
 # HTTP Client
-httpx>=0.26.0
+# =============================================================================
+httpx>=0.27.0
 aiohttp>=3.9.0
 
+# =============================================================================
 # Environment & Config
+# =============================================================================
 pydantic>=2.5.0
 pydantic-settings>=2.1.0
 python-dotenv>=1.0.0
 
+# =============================================================================
 # Utilities
+# =============================================================================
 tenacity>=8.2.0
+networkx>=3.0
+python-louvain>=0.16
