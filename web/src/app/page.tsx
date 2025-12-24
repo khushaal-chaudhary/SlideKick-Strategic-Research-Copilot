@@ -1,52 +1,75 @@
-import { SITE_CONFIG, PERSONAL_INFO } from "@/lib/constants";
+"use client";
+
+import { Header } from "@/components/header";
+import { Hero } from "@/components/hero";
+import { QueryInput } from "@/components/query-input";
+import { LogViewer } from "@/components/log-viewer";
+import { ResponseViewer } from "@/components/response-viewer";
+import { TechStack } from "@/components/tech-stack";
+import { FutureIterations } from "@/components/future-iterations";
+import { Footer } from "@/components/footer";
+import { useResearch } from "@/hooks/use-research";
+import { motion } from "framer-motion";
 
 export default function Home() {
+  const {
+    isLoading,
+    events,
+    response,
+    qualityScore,
+    sources,
+    submitQuery,
+  } = useResearch();
+
   return (
-    <main className="min-h-screen bg-background">
-      {/* Hero Section - Placeholder */}
-      <section className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-        <div className="animate-slide-up">
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-            {SITE_CONFIG.name}
-          </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            {SITE_CONFIG.description}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Created by{" "}
-            <a
-              href={PERSONAL_INFO.website}
-              className="underline hover:text-foreground transition-colors"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {PERSONAL_INFO.name}
-            </a>
-          </p>
-        </div>
+    <div className="min-h-screen flex flex-col bg-background">
+      <Header />
 
-        <div className="mt-12 flex gap-4">
-          <div className="px-6 py-3 bg-primary text-primary-foreground rounded-full font-medium hover-lift cursor-pointer">
-            Try Demo
+      <main className="flex-1">
+        {/* Hero Section */}
+        <Hero />
+
+        {/* Research Interface */}
+        <section className="py-8 sm:py-12 border-t border-border/40">
+          <div className="container">
+            <QueryInput onSubmit={submitQuery} isLoading={isLoading} />
+
+            {/* Results Grid */}
+            {(events.length > 0 || response) && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-8 grid gap-6 lg:grid-cols-2"
+              >
+                {/* Log Viewer */}
+                <div className="lg:order-2">
+                  <LogViewer events={events} isActive={isLoading} />
+                </div>
+
+                {/* Response */}
+                <div className="lg:order-1">
+                  {response && (
+                    <ResponseViewer
+                      response={response}
+                      qualityScore={qualityScore ?? undefined}
+                      sources={sources}
+                    />
+                  )}
+                </div>
+              </motion.div>
+            )}
           </div>
-          <a
-            href={PERSONAL_INFO.github}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-3 border border-border rounded-full font-medium hover-lift"
-          >
-            View Source
-          </a>
-        </div>
+        </section>
 
-        {/* Coming soon indicator */}
-        <div className="mt-24 text-sm text-muted-foreground">
-          <p>Full interface coming soon...</p>
-          <p className="mt-2 text-xs">
-            Next.js + Tailwind + shadcn/ui + Framer Motion
-          </p>
-        </div>
-      </section>
-    </main>
+        {/* Tech Stack Section */}
+        <TechStack />
+
+        {/* Future Iterations Section */}
+        <FutureIterations />
+      </main>
+
+      <Footer />
+    </div>
   );
 }

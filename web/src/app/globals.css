@@ -69,6 +69,12 @@
   }
 }
 
+@layer components {
+  .container {
+    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+}
+
 @layer utilities {
   /* Gradient text utility */
   .text-gradient {
