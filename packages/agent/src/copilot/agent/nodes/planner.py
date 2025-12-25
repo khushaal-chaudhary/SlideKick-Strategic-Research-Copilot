@@ -50,9 +50,10 @@ PLANNER_PROMPT = """You are a strategic research planner. Your job is to analyze
 - bullet_summary: Structured list (comparative questions)
 
 ## Entity Extraction Guidelines:
-- For financial queries, extract stock ticker symbols in UPPERCASE (e.g., MSFT, AAPL, TSLA, GOOGL, AMZN)
-- Recognize company names and map to tickers when possible (Microsoft → MSFT, Apple → AAPL)
-- Extract financial metrics mentioned: revenue, profit margin, P/E ratio, EPS, market cap, etc.
+- Extract entity names EXACTLY as they would appear in a knowledge graph (e.g., "Microsoft", "Azure", "Satya Nadella", "OpenAI")
+- Use full company names, NOT stock tickers, for entities_of_interest (Microsoft, not MSFT)
+- For financial queries, ALSO include stock_symbols separately as ticker symbols (MSFT, AAPL)
+- Extract product names, technologies, and people as written (e.g., "GitHub Copilot", "GPT-4", "Tim Cook")
 
 ## Research Query:
 {query}
@@ -60,7 +61,8 @@ PLANNER_PROMPT = """You are a strategic research planner. Your job is to analyze
 ## Response Format (JSON):
 {{
     "query_type": "factual|comparative|strategic|exploratory|financial",
-    "entities_of_interest": ["MSFT", "AAPL", "entity1"],
+    "entities_of_interest": ["Microsoft", "Azure", "Satya Nadella"],
+    "stock_symbols": ["MSFT", "AAPL"],
     "retrieval_strategy": "graph_only|hybrid|graph_then_web|financial_first",
     "output_format": "chat|slides|bullet_summary",
     "research_plan": [
@@ -79,11 +81,12 @@ Query: "What is Microsoft's P/E ratio and how does it compare to Apple?"
 Response:
 {{
     "query_type": "financial",
-    "entities_of_interest": ["MSFT", "AAPL"],
+    "entities_of_interest": ["Microsoft", "Apple"],
+    "stock_symbols": ["MSFT", "AAPL"],
     "retrieval_strategy": "financial_first",
     "output_format": "chat",
     "research_plan": [
-        {{"step": 1, "description": "Get financial metrics for MSFT and AAPL", "query": "P/E ratio comparison MSFT AAPL"}}
+        {{"step": 1, "description": "Get financial metrics for Microsoft and Apple", "query": "P/E ratio comparison Microsoft Apple"}}
     ],
     "reasoning": "Financial comparison query - need P/E ratios from financial API"
 }}
@@ -92,15 +95,31 @@ Query: "Analyze Tesla's financial health and stock performance"
 Response:
 {{
     "query_type": "financial",
-    "entities_of_interest": ["TSLA"],
+    "entities_of_interest": ["Tesla"],
+    "stock_symbols": ["TSLA"],
     "retrieval_strategy": "financial_first",
     "output_format": "bullet_summary",
     "research_plan": [
-        {{"step": 1, "description": "Get Tesla company overview and fundamentals", "query": "TSLA company overview"}},
-        {{"step": 2, "description": "Get income statement and profitability metrics", "query": "TSLA financial statements"}},
-        {{"step": 3, "description": "Get current stock quote and performance", "query": "TSLA stock price performance"}}
+        {{"step": 1, "description": "Get Tesla company overview and fundamentals", "query": "Tesla company overview"}},
+        {{"step": 2, "description": "Get income statement and profitability metrics", "query": "Tesla financial statements"}},
+        {{"step": 3, "description": "Get current stock quote and performance", "query": "Tesla stock price performance"}}
     ],
     "reasoning": "Comprehensive financial analysis - need fundamentals, financials, and stock data"
+}}
+
+Query: "How did Microsoft's cloud business evolve from 2020 to 2024?"
+Response:
+{{
+    "query_type": "strategic",
+    "entities_of_interest": ["Microsoft", "Azure", "cloud"],
+    "stock_symbols": [],
+    "retrieval_strategy": "graph_then_web",
+    "output_format": "chat",
+    "research_plan": [
+        {{"step": 1, "description": "Search knowledge graph for Microsoft cloud products and strategy", "query": "Microsoft Azure cloud evolution"}},
+        {{"step": 2, "description": "Find related products and partnerships", "query": "Microsoft cloud partnerships acquisitions"}}
+    ],
+    "reasoning": "Strategic query about product evolution - start with knowledge graph, supplement with web"
 }}
 
 Respond with valid JSON only, no markdown formatting.
@@ -197,14 +216,21 @@ def planner_node(state: ResearchState) -> dict[str, Any]:
             "results": [],
         })
     
+    # Extract stock symbols for financial queries
+    stock_symbols = plan_data.get("stock_symbols", [])
+    entities = plan_data.get("entities_of_interest", [])
+
     logger.info("   Query type: %s", query_type)
     logger.info("   Strategy: %s", retrieval_strategy)
     logger.info("   Output format: %s", output_format)
+    logger.info("   Entities: %s", entities)
+    logger.info("   Stock symbols: %s", stock_symbols)
     logger.info("   Research steps: %d", len(research_plan))
-    
+
     return {
         "query_type": query_type,
-        "entities_of_interest": plan_data.get("entities_of_interest", []),
+        "entities_of_interest": entities,
+        "stock_symbols": stock_symbols,
         "retrieval_strategy": retrieval_strategy,
         "output_format": output_format,
         "research_plan": research_plan,

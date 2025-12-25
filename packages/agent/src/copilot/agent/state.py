@@ -126,7 +126,8 @@ class ResearchState(TypedDict, total=False):
     # -------------------------------------------------------------------------
     original_query: str               # The user's original question
     query_type: str                   # QueryType value
-    entities_of_interest: list[str]   # Extracted entities to focus on
+    entities_of_interest: list[str]   # Extracted entities to focus on (full names for graph)
+    stock_symbols: list[str]          # Stock ticker symbols for financial API (MSFT, AAPL)
     
     # -------------------------------------------------------------------------
     # Planning
@@ -203,6 +204,7 @@ def create_initial_state(query: str, max_iterations: int = 3) -> ResearchState:
         original_query=query,
         query_type=QueryType.UNKNOWN.value,
         entities_of_interest=[],
+        stock_symbols=[],
         research_plan=[],
         current_step_index=0,
         retrieval_strategy=RetrievalStrategy.HYBRID.value,

@@ -555,17 +555,16 @@ def retriever_node(state: ResearchState) -> dict[str, Any]:
         all_retrievals.append(result)
 
     elif refinement_type == RefinementType.FINANCIAL_DATA.value:
-        # Critic requested financial data - use entities as stock symbols
+        # Critic requested financial data - use stock_symbols from planner
         logger.info("   📡 Critic requested FINANCIAL_DATA")
 
-        # Extract stock symbols from entities or refinement_focus
-        symbols = []
+        # Get stock symbols from state (set by planner) or refinement_focus
+        symbols = list(state.get("stock_symbols", []))
         if refinement_focus:
             # Refinement focus might contain comma-separated symbols
-            symbols = [s.strip().upper() for s in refinement_focus.split(",")]
-        if not symbols and entities:
-            # Use entities as potential stock symbols
-            symbols = [e.upper() for e in entities if len(e) <= 5 and e.isalpha()]
+            symbols.extend([s.strip().upper() for s in refinement_focus.split(",")])
+        # Deduplicate
+        symbols = list(dict.fromkeys(symbols))
 
         if symbols:
             result = _query_financial_data(symbols, query)
@@ -580,14 +579,14 @@ def retriever_node(state: ResearchState) -> dict[str, Any]:
         if retrieval_strategy == RetrievalStrategy.FINANCIAL_FIRST.value:
             logger.info("   💰 Strategy FINANCIAL_FIRST: Querying financial data")
 
-            # Use entities as stock symbols
-            symbols = [e.upper() for e in entities if len(e) <= 5 and e.isalpha()]
+            # Use stock_symbols from planner
+            symbols = list(state.get("stock_symbols", []))
             if symbols:
                 result = _query_financial_data(symbols, query)
                 financial_results.extend(result["results"])
                 all_retrievals.append(result)
             else:
-                logger.warning("   ⚠️ No stock symbols in entities, falling back to graph")
+                logger.warning("   ⚠️ No stock symbols, falling back to graph")
                 result = _query_graph(query, entities)
                 graph_results.extend(result["results"])
                 all_retrievals.append(result)
