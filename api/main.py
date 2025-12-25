@@ -268,10 +268,13 @@ async def _run_real_agent(session_id: str, query: str) -> AsyncGenerator[dict, N
     last_state = {}
 
     while True:
+        # Non-blocking sleep to keep event loop responsive
+        await asyncio.sleep(0.1)
+
         try:
-            # Check queue with timeout to allow for cancellation
+            # Non-blocking queue check
             try:
-                msg_type, payload = event_queue.get(timeout=0.5)
+                msg_type, payload = event_queue.get_nowait()
             except Empty:
                 continue
 
