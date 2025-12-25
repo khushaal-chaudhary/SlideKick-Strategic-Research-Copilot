@@ -167,7 +167,7 @@ async def stream_events(session_id: str):
 
             # Emit start event
             yield {
-                "event": EventType.START.value,
+                "event": "message",
                 "data": json.dumps(
                     {
                         "type": EventType.START.value,
@@ -192,7 +192,7 @@ async def stream_events(session_id: str):
             # Complete event
             session.status = "completed"
             yield {
-                "event": EventType.COMPLETE.value,
+                "event": "message",
                 "data": json.dumps(
                     {
                         "type": EventType.COMPLETE.value,
@@ -207,7 +207,7 @@ async def stream_events(session_id: str):
             session.status = "error"
             session.error = str(e)
             yield {
-                "event": EventType.ERROR.value,
+                "event": "message",
                 "data": json.dumps(
                     {
                         "type": EventType.ERROR.value,
@@ -631,7 +631,7 @@ async def _emit_node_event(
     """Emit a node start/complete event."""
     event_type = EventType.NODE_START if action == "start" else EventType.NODE_COMPLETE
     return {
-        "event": event_type.value,
+        "event": "message",
         "data": json.dumps(
             {
                 "type": event_type.value,
@@ -654,7 +654,7 @@ async def _emit_progress(
 ) -> dict:
     """Emit a progress update event."""
     return {
-        "event": EventType.PROGRESS.value,
+        "event": "message",
         "data": json.dumps(
             {
                 "type": EventType.PROGRESS.value,
@@ -674,7 +674,7 @@ async def _emit_decision(
 ) -> dict:
     """Emit a decision event from the critic."""
     return {
-        "event": EventType.DECISION.value,
+        "event": "message",
         "data": json.dumps(
             {
                 "type": EventType.DECISION.value,
@@ -697,7 +697,7 @@ async def _emit_retrieval(
 ) -> dict:
     """Emit a retrieval event."""
     return {
-        "event": EventType.RETRIEVAL.value,
+        "event": "message",
         "data": json.dumps(
             {
                 "type": EventType.RETRIEVAL.value,
@@ -721,7 +721,7 @@ async def _emit_insight(
 ) -> dict:
     """Emit an insight event."""
     return {
-        "event": EventType.INSIGHT.value,
+        "event": "message",
         "data": json.dumps(
             {
                 "type": EventType.INSIGHT.value,
@@ -741,7 +741,7 @@ async def _emit_output(
 ) -> dict:
     """Emit an output event."""
     return {
-        "event": EventType.OUTPUT.value,
+        "event": "message",
         "data": json.dumps(
             {
                 "type": EventType.OUTPUT.value,
@@ -764,7 +764,7 @@ async def _emit_final_response(
 ) -> dict:
     """Emit the final response event."""
     return {
-        "event": EventType.FINAL_RESPONSE.value,
+        "event": "message",
         "data": json.dumps(
             {
                 "type": EventType.FINAL_RESPONSE.value,
