@@ -448,12 +448,26 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
                     final = state.get("final_response", "")
                     session.final_response = final
 
+                    # Build sources list dynamically based on what data was retrieved
+                    sources_used = []
+                    if state.get("graph_results"):
+                        sources_used.append("knowledge_graph")
+                    if state.get("web_results"):
+                        sources_used.append("web_search")
+                    if state.get("financial_results"):
+                        sources_used.append("financial_api")
+                    if state.get("vector_results"):
+                        sources_used.append("vector_search")
+                    # Fallback if no sources detected
+                    if not sources_used:
+                        sources_used.append("knowledge_graph")
+
                     yield await _emit_final_response(
                         session_id,
                         final,
                         state.get("quality_score", 0.8),
                         state.get("iteration", 1),
-                        ["knowledge_graph", "llm"],
+                        sources_used,
                     )
 
                     yield await _emit_node_event(
