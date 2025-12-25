@@ -52,17 +52,33 @@ export function ResponseViewer({
           </div>
         </CardHeader>
 
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-hidden">
           <ScrollArea className="max-h-[500px]">
-            <div className="p-5 prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-h2:text-lg prose-h3:text-base prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground">
-              <ReactMarkdown>{response || ""}</ReactMarkdown>
+            <div className="p-5 prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-h2:text-lg prose-h3:text-base prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground break-words [overflow-wrap:anywhere]">
+              <ReactMarkdown
+                components={{
+                  // Ensure links and code don't overflow
+                  a: ({ children, ...props }) => (
+                    <a {...props} className="break-all">
+                      {children}
+                    </a>
+                  ),
+                  code: ({ children, ...props }) => (
+                    <code {...props} className="break-all">
+                      {children}
+                    </code>
+                  ),
+                }}
+              >
+                {response || ""}
+              </ReactMarkdown>
             </div>
           </ScrollArea>
 
           {sources && sources.length > 0 && (
             <div className="px-5 py-3 border-t bg-secondary/30">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="font-medium">Sources:</span>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-medium shrink-0">Sources:</span>
                 <div className="flex flex-wrap gap-1.5">
                   {sources.map((source) => (
                     <Badge key={source} variant="outline" className="text-xs">
