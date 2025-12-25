@@ -51,8 +51,8 @@ export function ResponseViewer({
           </div>
         </CardHeader>
 
-        <CardContent className="p-0">
-          <div className="max-h-[500px] overflow-y-auto">
+        <CardContent className="p-0 flex flex-col max-h-[600px]">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-5 prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-h2:text-lg prose-h3:text-base prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground break-words [overflow-wrap:anywhere]">
               <ReactMarkdown
                 components={{
@@ -74,7 +74,7 @@ export function ResponseViewer({
           </div>
 
           {sources && sources.length > 0 && (
-            <div className="px-5 py-3 border-t bg-secondary">
+            <div className="flex-shrink-0 px-5 py-3 border-t bg-secondary">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="font-medium shrink-0">Sources:</span>
                 <div className="flex flex-wrap gap-1.5">
