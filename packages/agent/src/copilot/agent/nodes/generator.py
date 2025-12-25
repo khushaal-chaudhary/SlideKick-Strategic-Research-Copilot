@@ -353,42 +353,74 @@ def _get_service_account_credentials():
     """
     Load Google Service Account credentials.
 
-    Looks for credentials in:
-    1. packages/google-slides-mcp/keys/google_service_account_key.json
-    2. Environment variable GOOGLE_APPLICATION_CREDENTIALS
+    Looks for credentials in order:
+    1. GOOGLE_SERVICE_ACCOUNT_JSON env var (JSON content directly)
+    2. GOOGLE_APPLICATION_CREDENTIALS env var (path to JSON file)
+    3. Local development path: packages/google-slides-mcp/keys/google_service_account_key.json
+
+    Returns None if no credentials found (Google Slides is optional).
     """
+    import json
+    import os
+    import tempfile
+
     from google.oauth2 import service_account
 
-    # Path 1: Local keys directory
-    local_key_path = (
-        Path(__file__).parent.parent.parent.parent.parent
-        / "google-slides-mcp"
-        / "keys"
-        / "google_service_account_key.json"
-    )
+    SCOPES = [
+        "https://www.googleapis.com/auth/presentations",
+        "https://www.googleapis.com/auth/drive.file",
+    ]
 
-    if local_key_path.exists():
-        return service_account.Credentials.from_service_account_file(
-            str(local_key_path),
-            scopes=[
-                "https://www.googleapis.com/auth/presentations",
-                "https://www.googleapis.com/auth/drive.file",
-            ],
-        )
+    # Option 1: JSON content directly in environment variable (best for HF Spaces)
+    json_content = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if json_content:
+        try:
+            creds_dict = json.loads(json_content)
+            return service_account.Credentials.from_service_account_info(
+                creds_dict,
+                scopes=SCOPES,
+            )
+        except json.JSONDecodeError as e:
+            logger.warning("Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON: %s", e)
 
-    # Path 2: Environment variable
-    import os
-
+    # Option 2: Path to credentials file via environment variable
     env_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     if env_path and Path(env_path).exists():
-        return service_account.Credentials.from_service_account_file(
-            env_path,
-            scopes=[
-                "https://www.googleapis.com/auth/presentations",
-                "https://www.googleapis.com/auth/drive.file",
-            ],
-        )
+        try:
+            return service_account.Credentials.from_service_account_file(
+                env_path,
+                scopes=SCOPES,
+            )
+        except Exception as e:
+            logger.warning("Failed to load credentials from %s: %s", env_path, e)
 
+    # Option 3: Local development path (relative to project root)
+    # From: packages/agent/src/copilot/agent/nodes/generator.py
+    # To:   packages/google-slides-mcp/keys/google_service_account_key.json
+    local_paths = [
+        # Development: relative to generator.py
+        Path(__file__).parent.parent.parent.parent.parent.parent
+        / "google-slides-mcp"
+        / "keys"
+        / "google_service_account_key.json",
+        # Docker/HF Spaces: might be in app root
+        Path("/home/user/app/keys/google_service_account_key.json"),
+        # Current working directory
+        Path("keys/google_service_account_key.json"),
+    ]
+
+    for local_key_path in local_paths:
+        if local_key_path.exists():
+            try:
+                return service_account.Credentials.from_service_account_file(
+                    str(local_key_path),
+                    scopes=SCOPES,
+                )
+            except Exception as e:
+                logger.warning("Failed to load credentials from %s: %s", local_key_path, e)
+
+    # No credentials found - this is OK, Google Slides is optional
+    logger.debug("Google Service Account not configured - Slides generation disabled")
     return None
 
 
@@ -479,9 +511,11 @@ def _create_google_slides(
         creds = _get_service_account_credentials()
         if not creds:
             result["error"] = (
-                "Google Service Account not configured. "
-                "Add google_service_account_key.json to packages/google-slides-mcp/keys/"
+                "Google Slides disabled - no service account configured. "
+                "Set GOOGLE_SERVICE_ACCOUNT_JSON env var with JSON content, "
+                "or GOOGLE_APPLICATION_CREDENTIALS with path to key file."
             )
+            logger.info("   Skipping Google Slides - credentials not configured")
             return result
 
         # Build Slides API service
