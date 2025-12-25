@@ -12,6 +12,7 @@ Fallback:
 """
 
 import logging
+from typing import Literal
 from langchain_core.language_models.chat_models import BaseChatModel
 from copilot.config.settings import settings
 
@@ -20,22 +21,57 @@ logger = logging.getLogger(__name__)
 # Track if we should use fallback
 _use_fallback = False
 
+# Per-request provider override (set via set_provider_override)
+_provider_override: str | None = None
+
+
+def set_provider_override(provider: Literal["ollama", "groq"] | None) -> None:
+    """
+    Set a provider override for the current request.
+
+    Call with None to clear the override.
+    """
+    global _provider_override
+    _provider_override = provider
+    if provider:
+        logger.info("Provider override set: %s", provider)
+
+
+def get_provider_override() -> str | None:
+    """Get the current provider override."""
+    return _provider_override
+
 
 def get_llm(temperature: float | None = None) -> BaseChatModel:
     """
     Get an LLM instance based on configuration.
 
-    Uses fallback provider (Ollama) if primary has failed previously.
+    Priority:
+    1. Provider override (per-request)
+    2. Fallback provider (if primary failed)
+    3. Default provider from settings
     """
-    global _use_fallback
+    global _use_fallback, _provider_override
 
     temp = temperature if temperature is not None else settings.llm_temperature
 
-    # Use fallback if flagged
-    if _use_fallback and settings.llm_fallback_provider != "none":
+    # Priority 1: Per-request override
+    if _provider_override:
+        provider = _provider_override
+        # Use appropriate model for the overridden provider
+        if provider == "groq":
+            model = "llama-3.3-70b-versatile"  # Groq's best model
+        elif provider == "ollama":
+            model = settings.llm_fallback_model  # Use configured Ollama model
+        else:
+            model = settings.llm_model
+        logger.info("Using overridden LLM: provider=%s, model=%s", provider, model)
+    # Priority 2: Use fallback if flagged
+    elif _use_fallback and settings.llm_fallback_provider != "none":
         provider = settings.llm_fallback_provider
         model = settings.llm_fallback_model
         logger.info("Using fallback LLM: provider=%s, model=%s", provider, model)
+    # Priority 3: Default from settings
     else:
         provider = settings.llm_provider
         model = settings.llm_model

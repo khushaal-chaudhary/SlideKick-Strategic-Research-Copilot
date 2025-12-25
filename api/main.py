@@ -49,11 +49,12 @@ if os.path.exists(agent_path):
 # Try to import the real agent
 try:
     from copilot.agent import create_copilot, ResearchState
-    from copilot.llm import activate_fallback
+    from copilot.llm import activate_fallback, set_provider_override
     AGENT_AVAILABLE = True
 except ImportError as e:
     logging.warning(f"Agent not available, using demo mode: {e}")
     AGENT_AVAILABLE = False
+    set_provider_override = None  # Dummy for type checking
 
 # =============================================================================
 # Logging Configuration
@@ -132,11 +133,12 @@ async def submit_query(request: QueryRequest):
     session = SessionState(
         session_id=session_id,
         query=request.query,
+        llm_provider=request.llm_provider,
         status="pending",
     )
     sessions[session_id] = session
 
-    logger.info(f"New query submitted: {session_id} - {request.query[:50]}...")
+    logger.info(f"New query submitted: {session_id} - {request.query[:50]}... (provider={request.llm_provider.value})")
 
     return QueryResponse(
         session_id=session_id,
@@ -182,7 +184,9 @@ async def stream_events(session_id: str):
             # Real Agent Flow
             # =================================================================
             if AGENT_AVAILABLE:
-                async for event in _run_real_agent(session_id, session.query):
+                async for event in _run_real_agent(
+                    session_id, session.query, session.llm_provider.value
+                ):
                     yield event
             else:
                 # Demo flow when agent is not available
@@ -226,11 +230,16 @@ async def stream_events(session_id: str):
 # =============================================================================
 
 
-async def _run_real_agent(session_id: str, query: str) -> AsyncGenerator[dict, None]:
+async def _run_real_agent(session_id: str, query: str, llm_provider: str = "ollama") -> AsyncGenerator[dict, None]:
     """
     Run the real LangGraph agent and yield SSE events in real-time.
 
     Uses a thread-safe queue to stream events as they're produced.
+
+    Args:
+        session_id: Unique session identifier
+        query: The research question
+        llm_provider: LLM provider to use ("ollama" or "groq")
     """
     session = sessions[session_id]
     event_queue: Queue = Queue()
@@ -248,6 +257,10 @@ async def _run_real_agent(session_id: str, query: str) -> AsyncGenerator[dict, N
     def run_agent():
         """Run agent in background thread, pushing events to queue."""
         try:
+            # Set the LLM provider override for this request
+            if set_provider_override:
+                set_provider_override(llm_provider)
+
             copilot = create_copilot()
             copilot.configure(max_iterations=settings.max_iterations)
 
@@ -259,6 +272,10 @@ async def _run_real_agent(session_id: str, query: str) -> AsyncGenerator[dict, N
         except Exception as e:
             logger.error(f"Agent thread error: {e}")
             event_queue.put(("error", e))
+        finally:
+            # Clear the provider override after request
+            if set_provider_override:
+                set_provider_override(None)
 
     # Start agent in background thread
     agent_thread = threading.Thread(target=run_agent, daemon=True)

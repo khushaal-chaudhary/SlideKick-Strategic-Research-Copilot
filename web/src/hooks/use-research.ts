@@ -4,6 +4,8 @@ import { useState, useCallback, useRef } from "react";
 import { API_CONFIG } from "@/lib/constants";
 import type { LogEvent } from "@/components/log-viewer";
 
+export type LLMProvider = "ollama" | "groq";
+
 interface ResearchState {
   isLoading: boolean;
   events: LogEvent[];
@@ -51,7 +53,7 @@ export function useResearch() {
   );
 
   const submitQuery = useCallback(
-    async (query: string) => {
+    async (query: string, llmProvider: LLMProvider = "ollama") => {
       // Reset state
       setState({
         isLoading: true,
@@ -72,7 +74,7 @@ export function useResearch() {
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ query }),
+            body: JSON.stringify({ query, llm_provider: llmProvider }),
           }
         );
 

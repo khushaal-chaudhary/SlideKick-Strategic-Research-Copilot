@@ -63,6 +63,13 @@ class QueryType(str, Enum):
     UNKNOWN = "unknown"
 
 
+class LLMProvider(str, Enum):
+    """Available LLM providers."""
+
+    OLLAMA = "ollama"
+    GROQ = "groq"
+
+
 # =============================================================================
 # Request Models
 # =============================================================================
@@ -83,6 +90,10 @@ class QueryRequest(BaseModel):
         ge=1,
         le=5,
         description="Maximum research iterations",
+    )
+    llm_provider: LLMProvider = Field(
+        default=LLMProvider.OLLAMA,
+        description="LLM provider to use (ollama=local/free, groq=fast/rate-limited)",
     )
 
 
@@ -213,6 +224,7 @@ class SessionState(BaseModel):
 
     session_id: str
     query: str
+    llm_provider: LLMProvider = LLMProvider.OLLAMA
     status: str = "pending"  # pending, processing, completed, error
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
