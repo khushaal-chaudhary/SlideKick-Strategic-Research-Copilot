@@ -12,9 +12,11 @@ import json
 import logging
 import os
 import sys
+import threading
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime
+from queue import Queue, Empty
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -226,196 +228,217 @@ async def stream_events(session_id: str):
 
 async def _run_real_agent(session_id: str, query: str) -> AsyncGenerator[dict, None]:
     """
-    Run the real LangGraph agent and yield SSE events.
+    Run the real LangGraph agent and yield SSE events in real-time.
 
-    The agent streams state updates as it progresses through nodes.
-    We convert these to our SSE event format.
+    Uses a thread-safe queue to stream events as they're produced.
     """
     session = sessions[session_id]
+    event_queue: Queue = Queue()
 
-    try:
-        # Create the copilot
-        copilot = create_copilot()
-        copilot.configure(max_iterations=settings.max_iterations)
+    # Map LangGraph node names to our AgentNode enum
+    node_mapping = {
+        "planner": AgentNode.PLANNER,
+        "retriever": AgentNode.RETRIEVER,
+        "analyzer": AgentNode.ANALYZER,
+        "critic": AgentNode.CRITIC,
+        "generator": AgentNode.GENERATOR,
+        "responder": AgentNode.RESPONDER,
+    }
 
-        # Map LangGraph node names to our AgentNode enum
-        node_mapping = {
-            "planner": AgentNode.PLANNER,
-            "retriever": AgentNode.RETRIEVER,
-            "analyzer": AgentNode.ANALYZER,
-            "critic": AgentNode.CRITIC,
-            "generator": AgentNode.GENERATOR,
-            "responder": AgentNode.RESPONDER,
-        }
+    def run_agent():
+        """Run agent in background thread, pushing events to queue."""
+        try:
+            copilot = create_copilot()
+            copilot.configure(max_iterations=settings.max_iterations)
 
-        last_state = {}
-
-        # Run in thread pool since LangGraph is sync
-        def run_agent():
-            results = []
             for event in copilot.stream(query, thread_id=session_id):
-                results.append(event)
-            return results
+                event_queue.put(("event", event))
 
-        # Execute in thread pool
-        loop = asyncio.get_event_loop()
-        events = await loop.run_in_executor(None, run_agent)
+            event_queue.put(("done", None))
 
-        for event in events:
-            # LangGraph events are dicts with node name as key
+        except Exception as e:
+            logger.error(f"Agent thread error: {e}")
+            event_queue.put(("error", e))
+
+    # Start agent in background thread
+    agent_thread = threading.Thread(target=run_agent, daemon=True)
+    agent_thread.start()
+
+    # Process events as they arrive
+    last_state = {}
+
+    while True:
+        try:
+            # Check queue with timeout to allow for cancellation
+            try:
+                msg_type, payload = event_queue.get(timeout=0.5)
+            except Empty:
+                continue
+
+            if msg_type == "done":
+                break
+
+            if msg_type == "error":
+                raise payload
+
+            # Process LangGraph event
+            event = payload
             for node_name, state in event.items():
-                if node_name in node_mapping:
-                    node = node_mapping[node_name]
+                if node_name not in node_mapping:
+                    continue
 
-                    # Emit node start
+                node = node_mapping[node_name]
+
+                # Emit node start
+                yield await _emit_node_event(
+                    session_id,
+                    node,
+                    "start",
+                    f"Processing {node_name}...",
+                )
+
+                # Extract relevant data from state and emit events
+                if node_name == "planner":
+                    entities = state.get("entities_of_interest", [])
+                    entity_preview = ", ".join(entities[:3]) if entities else "none"
                     yield await _emit_node_event(
                         session_id,
                         node,
-                        "start",
-                        f"Processing {node_name}...",
+                        "complete",
+                        f"Identified {len(entities)} entities: {entity_preview}",
+                        {"entities": entities},
                     )
 
-                    # Extract relevant data from state
-                    if node_name == "planner":
-                        entities = state.get("entities_of_interest", [])
-                        yield await _emit_node_event(
+                elif node_name == "retriever":
+                    graph_results = state.get("graph_results", [])
+                    web_results = state.get("web_results", [])
+                    financial_results = state.get("financial_results", [])
+
+                    if graph_results:
+                        yield await _emit_retrieval(
                             session_id,
-                            node,
-                            "complete",
-                            f"Identified {len(entities)} entities: {', '.join(entities[:3])}",
-                            {"entities": entities},
+                            "graph",
+                            query,
+                            len(graph_results),
+                            graph_results[:3],
                         )
 
-                    elif node_name == "retriever":
-                        graph_results = state.get("graph_results", [])
-                        web_results = state.get("web_results", [])
-
-                        if graph_results:
-                            yield await _emit_retrieval(
-                                session_id,
-                                "graph",
-                                query,
-                                len(graph_results),
-                                graph_results[:3],
-                            )
-
-                        if web_results:
-                            yield await _emit_retrieval(
-                                session_id,
-                                "web",
-                                query,
-                                len(web_results),
-                                web_results[:3],
-                            )
-
-                        yield await _emit_node_event(
+                    if web_results:
+                        yield await _emit_retrieval(
                             session_id,
-                            node,
-                            "complete",
-                            f"Retrieved {len(graph_results)} graph + {len(web_results)} web results",
+                            "web",
+                            query,
+                            len(web_results),
+                            web_results[:3],
                         )
 
-                    elif node_name == "analyzer":
-                        insights = state.get("insights", [])
-                        for insight in insights[:3]:
-                            yield await _emit_insight(
-                                session_id,
-                                insight.get("category", "insight"),
-                                insight.get("title", "Finding"),
-                                insight.get("description", ""),
-                                insight.get("confidence", 0.8),
-                            )
-
-                        yield await _emit_node_event(
+                    if financial_results:
+                        yield await _emit_retrieval(
                             session_id,
-                            node,
-                            "complete",
-                            f"Generated {len(insights)} insights",
+                            "financial",
+                            query,
+                            len(financial_results),
+                            financial_results[:3],
                         )
 
-                    elif node_name == "critic":
-                        quality = state.get("quality_score", 0.0)
-                        needs_refinement = state.get("needs_refinement", False)
-                        refinement_type = state.get("refinement_type", "none")
-                        iteration = state.get("iteration", 1)
+                    total = len(graph_results) + len(web_results) + len(financial_results)
+                    yield await _emit_node_event(
+                        session_id,
+                        node,
+                        "complete",
+                        f"Retrieved {total} results (graph={len(graph_results)}, web={len(web_results)}, financial={len(financial_results)})",
+                    )
 
-                        decision = "sufficient" if not needs_refinement else "refine"
-                        next_action = "Generate response" if not needs_refinement else f"Loop back ({refinement_type})"
-
-                        yield await _emit_decision(
+                elif node_name == "analyzer":
+                    insights = state.get("insights", [])
+                    for insight in insights[:3]:
+                        yield await _emit_insight(
                             session_id,
-                            decision,
-                            f"Quality: {quality:.0%}, Iteration: {iteration}",
-                            next_action,
+                            insight.get("category", "insight"),
+                            insight.get("title", "Finding"),
+                            insight.get("description", ""),
+                            insight.get("confidence", 0.8),
                         )
 
-                        yield await _emit_progress(
-                            session_id,
-                            iteration,
-                            state.get("max_iterations", 3),
-                            next_action,
-                            quality,
-                        )
+                    yield await _emit_node_event(
+                        session_id,
+                        node,
+                        "complete",
+                        f"Generated {len(insights)} insights",
+                    )
 
-                        yield await _emit_node_event(
-                            session_id,
-                            node,
-                            "complete",
-                            f"Quality: {quality:.0%}",
-                            {"quality_score": quality},
-                        )
+                elif node_name == "critic":
+                    quality = state.get("quality_score", 0.0)
+                    needs_refinement = state.get("needs_refinement", False)
+                    refinement_type = state.get("refinement_type", "none")
+                    iteration = state.get("iteration", 1)
 
-                    elif node_name == "generator":
-                        content = state.get("output_content", "")
-                        yield await _emit_output(
-                            session_id,
-                            state.get("output_format", "chat"),
-                            content[:100] + "..." if len(content) > 100 else content,
-                        )
+                    decision = "sufficient" if not needs_refinement else "refine"
+                    next_action = "Generate response" if not needs_refinement else f"Loop back ({refinement_type})"
 
-                        yield await _emit_node_event(
-                            session_id,
-                            node,
-                            "complete",
-                            "Content generated",
-                        )
+                    yield await _emit_decision(
+                        session_id,
+                        decision,
+                        f"Quality: {quality:.0%}, Iteration: {iteration}",
+                        next_action,
+                    )
 
-                    elif node_name == "responder":
-                        final = state.get("final_response", "")
-                        session.final_response = final
+                    yield await _emit_progress(
+                        session_id,
+                        iteration,
+                        state.get("max_iterations", 3),
+                        next_action,
+                        quality,
+                    )
 
-                        yield await _emit_final_response(
-                            session_id,
-                            final,
-                            state.get("quality_score", 0.8),
-                            state.get("iteration", 1),
-                            ["knowledge_graph", "llm"],
-                        )
+                    yield await _emit_node_event(
+                        session_id,
+                        node,
+                        "complete",
+                        f"Quality: {quality:.0%}",
+                        {"quality_score": quality},
+                    )
 
-                        yield await _emit_node_event(
-                            session_id,
-                            node,
-                            "complete",
-                            "Response delivered",
-                        )
+                elif node_name == "generator":
+                    content = state.get("output_content", "")
+                    yield await _emit_output(
+                        session_id,
+                        state.get("output_format", "chat"),
+                        content[:100] + "..." if len(content) > 100 else content,
+                    )
 
-                    # Update last state
-                    last_state.update(state)
+                    yield await _emit_node_event(
+                        session_id,
+                        node,
+                        "complete",
+                        "Content generated",
+                    )
 
-    except Exception as e:
-        logger.error(f"Agent error for session {session_id}: {e}")
+                elif node_name == "responder":
+                    final = state.get("final_response", "")
+                    session.final_response = final
 
-        # Try fallback if available
-        if AGENT_AVAILABLE:
-            logger.info("Attempting to activate fallback LLM...")
-            if activate_fallback():
-                # Retry with fallback
-                async for event in _run_real_agent(session_id, query):
-                    yield event
-                return
+                    yield await _emit_final_response(
+                        session_id,
+                        final,
+                        state.get("quality_score", 0.8),
+                        state.get("iteration", 1),
+                        ["knowledge_graph", "llm"],
+                    )
 
-        # If no fallback, re-raise
-        raise
+                    yield await _emit_node_event(
+                        session_id,
+                        node,
+                        "complete",
+                        "Response delivered",
+                    )
+
+                # Update last state
+                last_state.update(state)
+
+        except Exception as e:
+            logger.error(f"Error processing agent event: {e}")
+            raise
 
 
 async def _run_demo_agent(session_id: str, query: str) -> AsyncGenerator[dict, None]:
