@@ -331,6 +331,7 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
 
                 elif node_name == "retriever":
                     graph_results = state.get("graph_results", [])
+                    vector_results = state.get("vector_results", [])
                     web_results = state.get("web_results", [])
                     financial_results = state.get("financial_results", [])
 
@@ -341,6 +342,15 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
                             query,
                             len(graph_results),
                             graph_results[:3],
+                        )
+
+                    if vector_results:
+                        yield await _emit_retrieval(
+                            session_id,
+                            "vector",
+                            query,
+                            len(vector_results),
+                            vector_results[:3],
                         )
 
                     if web_results:
@@ -361,12 +371,12 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
                             financial_results[:3],
                         )
 
-                    total = len(graph_results) + len(web_results) + len(financial_results)
+                    total = len(graph_results) + len(vector_results) + len(web_results) + len(financial_results)
                     yield await _emit_node_event(
                         session_id,
                         node,
                         "complete",
-                        f"Retrieved {total} results (graph={len(graph_results)}, web={len(web_results)}, financial={len(financial_results)})",
+                        f"Retrieved {total} results (graph={len(graph_results)}, vector={len(vector_results)}, web={len(web_results)}, financial={len(financial_results)})",
                     )
 
                 elif node_name == "analyzer":
