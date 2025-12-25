@@ -5,9 +5,9 @@
 
 export const SITE_CONFIG = {
   name: "SlideKick",
-  tagline: "Research that kicks!",
+  tagline: "No more sideways glances at empty decks",
   description:
-    "Your AI research sidekick that digs through knowledge graphs, crunches data, argues with itself, and delivers killer insights. No coffee breaks needed.",
+    "Your AI research buddy that fetches data, finds patterns, and kicks out polished presentations. It even argues with itself so you don't have to.",
   author: "Khushaal Chaudhary",
   url: "https://khushaalchaudhary.com",
 } as const;
