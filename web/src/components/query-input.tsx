@@ -4,7 +4,6 @@ import { useState, FormEvent } from "react";
 import { Send, Loader2, Sparkles, Zap, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { EXAMPLE_QUERIES } from "@/lib/constants";
 import { motion } from "framer-motion";
 import type { LLMProvider } from "@/hooks/use-research";
@@ -78,33 +77,41 @@ export function QueryInput({
               type="button"
               onClick={() => setProvider("ollama")}
               disabled={isLoading || disabled}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 provider === "ollama"
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
                   : "bg-secondary hover:bg-secondary/80 text-muted-foreground"
               } disabled:opacity-50`}
             >
               <Server className="h-3.5 w-3.5" />
               Ollama
-              <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0">
+              <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded border ${
+                provider === "ollama"
+                  ? "border-white/30 text-white/80 dark:border-zinc-900/30 dark:text-zinc-900/80"
+                  : "border-border text-muted-foreground"
+              }`}>
                 Free
-              </Badge>
+              </span>
             </button>
             <button
               type="button"
               onClick={() => setProvider("groq")}
               disabled={isLoading || disabled}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 provider === "groq"
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
                   : "bg-secondary hover:bg-secondary/80 text-muted-foreground"
               } disabled:opacity-50`}
             >
               <Zap className="h-3.5 w-3.5" />
               Groq
-              <Badge variant="outline" className="ml-1 text-[10px] px-1.5 py-0">
+              <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded border ${
+                provider === "groq"
+                  ? "border-white/30 text-white/80 dark:border-zinc-900/30 dark:text-zinc-900/80"
+                  : "border-border text-muted-foreground"
+              }`}>
                 Fast
-              </Badge>
+              </span>
             </button>
           </div>
         </div>

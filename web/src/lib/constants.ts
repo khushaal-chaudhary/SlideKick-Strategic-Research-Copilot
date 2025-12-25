@@ -110,11 +110,11 @@ export const AGENT_NODES = [
 ] as const;
 
 export const EXAMPLE_QUERIES = [
-  "What's Microsoft's secret AI sauce from their shareholder letters?",
-  "How did Microsoft's cloud game evolve from 2020 to 2024?",
-  "What themes keep popping up in Microsoft's annual letters?",
-  "How is Microsoft throwing punches at competitors?",
-  "Battle of the titans: MSFT vs AAPL P/E showdown?",
+  "What is Microsoft's AI strategy based on their shareholder letters?",
+  "How did Microsoft's cloud business evolve from 2020 to 2024?",
+  "What are the recurring themes in Microsoft's annual shareholder letters?",
+  "How is Microsoft positioning against competitors?",
+  "Compare Microsoft (MSFT) and Apple (AAPL) P/E ratios",
 ] as const;
 
 export const FUTURE_ITERATIONS = [
