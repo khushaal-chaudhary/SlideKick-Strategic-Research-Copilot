@@ -802,6 +802,89 @@ async def get_session(session_id: str):
 
 
 # =============================================================================
+# Diagnostic Endpoints
+# =============================================================================
+
+
+@app.get("/api/debug/neo4j")
+async def debug_neo4j():
+    """
+    Diagnostic endpoint to check Neo4j connection, schema, and sample data.
+
+    Returns schema info and sample nodes to help debug retrieval issues.
+    """
+    if not AGENT_AVAILABLE:
+        return {"error": "Agent not available - cannot check Neo4j"}
+
+    try:
+        from copilot.graph.connection import graph_connection
+
+        result = {
+            "status": "connected",
+            "schema": None,
+            "node_labels": [],
+            "relationship_types": [],
+            "sample_nodes": [],
+            "total_nodes": 0,
+            "total_relationships": 0,
+        }
+
+        # Get schema
+        try:
+            result["schema"] = graph_connection.schema
+        except Exception as e:
+            result["schema_error"] = str(e)
+
+        # Get node labels
+        try:
+            labels = graph_connection.query("CALL db.labels()")
+            result["node_labels"] = [l["label"] for l in labels]
+        except Exception as e:
+            result["labels_error"] = str(e)
+
+        # Get relationship types
+        try:
+            rels = graph_connection.query("CALL db.relationshipTypes()")
+            result["relationship_types"] = [r["relationshipType"] for r in rels]
+        except Exception as e:
+            result["rels_error"] = str(e)
+
+        # Count nodes
+        try:
+            count = graph_connection.query("MATCH (n) RETURN count(n) AS count")
+            result["total_nodes"] = count[0]["count"] if count else 0
+        except Exception as e:
+            result["count_error"] = str(e)
+
+        # Count relationships
+        try:
+            rel_count = graph_connection.query("MATCH ()-[r]->() RETURN count(r) AS count")
+            result["total_relationships"] = rel_count[0]["count"] if rel_count else 0
+        except Exception as e:
+            result["rel_count_error"] = str(e)
+
+        # Get sample nodes (first 5 with their properties)
+        try:
+            samples = graph_connection.query("""
+                MATCH (n)
+                RETURN labels(n) AS labels, keys(n) AS properties,
+                       n.id AS id, n.name AS name, n.text AS text
+                LIMIT 5
+            """)
+            result["sample_nodes"] = samples
+        except Exception as e:
+            result["sample_error"] = str(e)
+
+        return result
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
+# =============================================================================
 # Development Entry Point
 # =============================================================================
 
