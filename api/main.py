@@ -18,8 +18,13 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from queue import Queue, Empty
 
+import tempfile
+import time
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 from config import get_settings
@@ -923,6 +928,94 @@ async def debug_neo4j():
             "status": "error",
             "error": str(e),
         }
+
+
+# =============================================================================
+# Presentation Download Endpoints
+# =============================================================================
+
+# Directory for storing generated presentations
+PPTX_TEMP_DIR = Path(tempfile.gettempdir()) / "slidekick_presentations"
+
+
+def _cleanup_old_presentations(max_age_hours: int = 1):
+    """Remove presentation files older than max_age_hours."""
+    if not PPTX_TEMP_DIR.exists():
+        return
+
+    cutoff_time = time.time() - (max_age_hours * 3600)
+
+    for file_path in PPTX_TEMP_DIR.glob("*.pptx"):
+        try:
+            if file_path.stat().st_mtime < cutoff_time:
+                file_path.unlink()
+                logger.info(f"Cleaned up old presentation: {file_path.name}")
+        except Exception as e:
+            logger.warning(f"Failed to clean up {file_path}: {e}")
+
+
+@app.get("/api/download/{filename}")
+async def download_presentation(filename: str):
+    """
+    Download a generated PowerPoint presentation.
+
+    Files are stored temporarily and cleaned up after 1 hour.
+    """
+    # Security: Ensure filename doesn't contain path traversal
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    # Only allow .pptx files
+    if not filename.endswith(".pptx"):
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    file_path = PPTX_TEMP_DIR / filename
+
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Presentation not found. Files expire after 1 hour."
+        )
+
+    # Clean up old files on each download request (lightweight cleanup)
+    _cleanup_old_presentations()
+
+    return FileResponse(
+        path=str(file_path),
+        filename=filename,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+
+@app.get("/api/presentations")
+async def list_presentations():
+    """
+    List available presentations for download.
+
+    Useful for debugging and checking what presentations are available.
+    """
+    if not PPTX_TEMP_DIR.exists():
+        return {"presentations": [], "message": "No presentations generated yet"}
+
+    presentations = []
+    for file_path in PPTX_TEMP_DIR.glob("*.pptx"):
+        stat = file_path.stat()
+        age_minutes = (time.time() - stat.st_mtime) / 60
+        presentations.append({
+            "filename": file_path.name,
+            "size_kb": round(stat.st_size / 1024, 1),
+            "age_minutes": round(age_minutes, 1),
+            "download_url": f"/api/download/{file_path.name}",
+        })
+
+    return {
+        "presentations": presentations,
+        "temp_dir": str(PPTX_TEMP_DIR),
+        "cleanup_after_hours": 1,
+    }
 
 
 # =============================================================================

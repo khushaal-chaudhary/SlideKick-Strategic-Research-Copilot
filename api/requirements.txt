@@ -62,3 +62,8 @@ python-dotenv>=1.0.0
 tenacity>=8.2.0
 networkx>=3.0
 python-louvain>=0.16
+
+# =============================================================================
+# Presentation Generation
+# =============================================================================
+python-pptx>=0.6.21  # PowerPoint generation fallback

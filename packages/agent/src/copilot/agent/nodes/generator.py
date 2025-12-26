@@ -85,10 +85,15 @@ Follow these principles for professional, visually appealing slides:
 - **Content Slides**: One key idea per slide with supporting points
 - **Recommendations**: Actionable, specific, measurable items
 
-### Speaker Notes
-- Include presenter talking points (2-3 sentences)
-- Add data sources or evidence references
-- Note transitions between slides
+### Speaker Notes & Design Suggestions
+For EACH slide, include:
+- **speaker_notes**: Presenter talking points (2-3 sentences) with data sources
+- **design_suggestions**: Specific visual enhancement ideas including:
+  - visual_type: Chart type, diagram, or image suggestion (e.g., "bar chart", "flowchart", "timeline", "icon grid")
+  - visual_description: What the visual should show
+  - layout_tip: How to arrange content (e.g., "2-column: bullets left, chart right")
+  - color_emphasis: What to highlight with color (e.g., "Use green for growth metrics, red for risks")
+  - icons_to_use: Relevant icons or emojis (e.g., "📈 for growth", "🎯 for goals", "⚡ for speed")
 
 ## Response Format (JSON):
 {{
@@ -98,30 +103,58 @@ Follow these principles for professional, visually appealing slides:
         {{
             "type": "title",
             "title": "Main Title",
-            "subtitle": "Subtitle"
+            "subtitle": "Subtitle",
+            "design_suggestions": {{
+                "visual_type": "background image or gradient",
+                "visual_description": "Professional abstract background with company colors",
+                "layout_tip": "Center-aligned, clean with ample whitespace",
+                "color_emphasis": "Bold title in dark blue (#1a365d), subtitle in gray",
+                "icons_to_use": "Company logo if available"
+            }}
         }},
         {{
             "type": "executive_summary",
             "title": "Executive Summary",
             "bullets": ["Key takeaway 1", "Key takeaway 2", "Key takeaway 3"],
-            "speaker_notes": "Open with the bottom line. These three points summarize our findings."
+            "speaker_notes": "Open with the bottom line. These three points summarize our findings.",
+            "design_suggestions": {{
+                "visual_type": "3-column icon grid",
+                "visual_description": "Each takeaway as a card with an icon above",
+                "layout_tip": "Three equal columns, icon on top, text below",
+                "color_emphasis": "Use accent color for icons, dark text for content",
+                "icons_to_use": "📊 for data insights, 💡 for strategies, 🎯 for goals"
+            }}
         }},
         {{
             "type": "content",
             "title": "Insight Title",
             "bullets": ["Point 1", "Point 2", "Point 3"],
-            "speaker_notes": "Additional context for presenter with supporting data."
+            "speaker_notes": "Additional context for presenter with supporting data.",
+            "design_suggestions": {{
+                "visual_type": "Specific chart or diagram type",
+                "visual_description": "Description of what the visual shows",
+                "layout_tip": "Suggested layout arrangement",
+                "color_emphasis": "What to highlight with color",
+                "icons_to_use": "Relevant icons for this content"
+            }}
         }},
         {{
             "type": "recommendations",
             "title": "Recommended Actions",
             "bullets": ["Action 1: Specific step", "Action 2: Specific step", "Action 3: Specific step"],
-            "speaker_notes": "Close with clear next steps and owners."
+            "speaker_notes": "Close with clear next steps and owners.",
+            "design_suggestions": {{
+                "visual_type": "numbered list or roadmap",
+                "visual_description": "Timeline or step-by-step visual",
+                "layout_tip": "Numbered items with clear hierarchy",
+                "color_emphasis": "Use action colors (blue for immediate, green for ongoing)",
+                "icons_to_use": "✅ for action items, 📅 for timelines, 👤 for ownership"
+            }}
         }}
     ]
 }}
 
-Respond with valid JSON only. Prioritize clarity and visual impact over completeness.
+Respond with valid JSON only. Include specific, actionable design suggestions for each slide to help users enhance the basic template.
 """
 
 
@@ -571,6 +604,189 @@ def _create_google_slides(
         return result
 
 
+def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> dict[str, Any]:
+    """
+    Create a PowerPoint presentation using python-pptx as a fallback.
+
+    This is used when Google Slides API is not available.
+    Creates a basic but clean presentation that users can enhance.
+
+    Args:
+        slides_content: The slide deck structure
+        session_id: Optional session ID for unique filename
+
+    Returns:
+        Dict with keys:
+        - file_path: Path to the generated .pptx file
+        - filename: Just the filename
+        - error: Error message if failed
+        - design_tips: Tips for enhancing the presentation
+    """
+    import os
+    import tempfile
+    import uuid
+
+    result = {
+        "file_path": None,
+        "filename": None,
+        "error": None,
+        "design_tips": None,
+    }
+
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches, Pt
+        from pptx.dml.color import RgbColor
+        from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+
+        # Create presentation
+        prs = Presentation()
+        prs.slide_width = Inches(13.333)  # 16:9 aspect ratio
+        prs.slide_height = Inches(7.5)
+
+        # Color scheme
+        TITLE_COLOR = RgbColor(26, 54, 93)  # Dark blue #1a365d
+        BODY_COLOR = RgbColor(45, 55, 72)   # Dark gray #2d3748
+        ACCENT_COLOR = RgbColor(49, 130, 206)  # Blue accent #3182ce
+
+        # Collect design suggestions for output
+        all_design_tips = []
+
+        for idx, slide_data in enumerate(slides_content.get("slides", [])):
+            slide_type = slide_data.get("type", "content")
+
+            # Use blank layout for full control
+            blank_layout = prs.slide_layouts[6]  # Blank layout
+            slide = prs.slides.add_slide(blank_layout)
+
+            # Get design suggestions if available
+            design_suggestions = slide_data.get("design_suggestions", {})
+            if design_suggestions:
+                tip_text = f"**Slide {idx + 1}: {slide_data.get('title', 'Untitled')}**\n"
+                if design_suggestions.get("visual_type"):
+                    tip_text += f"  • Visual: {design_suggestions.get('visual_type')}\n"
+                if design_suggestions.get("visual_description"):
+                    tip_text += f"  • Description: {design_suggestions.get('visual_description')}\n"
+                if design_suggestions.get("layout_tip"):
+                    tip_text += f"  • Layout: {design_suggestions.get('layout_tip')}\n"
+                if design_suggestions.get("icons_to_use"):
+                    tip_text += f"  • Icons: {design_suggestions.get('icons_to_use')}\n"
+                all_design_tips.append(tip_text)
+
+            if slide_type == "title":
+                # Title slide - centered title and subtitle
+                title_text = slide_data.get("title", "Presentation")
+                subtitle_text = slide_data.get("subtitle", "")
+
+                # Title
+                title_box = slide.shapes.add_textbox(
+                    Inches(0.5), Inches(2.5), Inches(12.333), Inches(1.5)
+                )
+                title_frame = title_box.text_frame
+                title_para = title_frame.paragraphs[0]
+                title_para.text = title_text
+                title_para.font.size = Pt(44)
+                title_para.font.bold = True
+                title_para.font.color.rgb = TITLE_COLOR
+                title_para.alignment = PP_ALIGN.CENTER
+
+                # Subtitle
+                if subtitle_text:
+                    subtitle_box = slide.shapes.add_textbox(
+                        Inches(0.5), Inches(4.2), Inches(12.333), Inches(0.8)
+                    )
+                    subtitle_frame = subtitle_box.text_frame
+                    subtitle_para = subtitle_frame.paragraphs[0]
+                    subtitle_para.text = subtitle_text
+                    subtitle_para.font.size = Pt(24)
+                    subtitle_para.font.color.rgb = BODY_COLOR
+                    subtitle_para.alignment = PP_ALIGN.CENTER
+
+            else:
+                # Content slides (executive_summary, content, recommendations)
+                title_text = slide_data.get("title", "")
+                bullets = slide_data.get("bullets", [])
+                speaker_notes = slide_data.get("speaker_notes", "")
+
+                # Title
+                title_box = slide.shapes.add_textbox(
+                    Inches(0.5), Inches(0.4), Inches(12.333), Inches(1)
+                )
+                title_frame = title_box.text_frame
+                title_para = title_frame.paragraphs[0]
+                title_para.text = title_text
+                title_para.font.size = Pt(32)
+                title_para.font.bold = True
+                title_para.font.color.rgb = TITLE_COLOR
+
+                # Bullets
+                if bullets:
+                    body_box = slide.shapes.add_textbox(
+                        Inches(0.5), Inches(1.6), Inches(12.333), Inches(5)
+                    )
+                    body_frame = body_box.text_frame
+                    body_frame.word_wrap = True
+
+                    for i, bullet in enumerate(bullets):
+                        if i == 0:
+                            para = body_frame.paragraphs[0]
+                        else:
+                            para = body_frame.add_paragraph()
+                        para.text = f"• {bullet}"
+                        para.font.size = Pt(20)
+                        para.font.color.rgb = BODY_COLOR
+                        para.space_after = Pt(12)
+
+                # Add speaker notes
+                if speaker_notes:
+                    notes_slide = slide.notes_slide
+                    notes_frame = notes_slide.notes_text_frame
+                    notes_frame.text = speaker_notes
+
+                    # Add design suggestions to notes if available
+                    if design_suggestions:
+                        notes_frame.text += "\n\n--- DESIGN SUGGESTIONS ---\n"
+                        if design_suggestions.get("visual_type"):
+                            notes_frame.text += f"Visual: {design_suggestions.get('visual_type')}\n"
+                        if design_suggestions.get("visual_description"):
+                            notes_frame.text += f"Description: {design_suggestions.get('visual_description')}\n"
+                        if design_suggestions.get("layout_tip"):
+                            notes_frame.text += f"Layout: {design_suggestions.get('layout_tip')}\n"
+                        if design_suggestions.get("color_emphasis"):
+                            notes_frame.text += f"Colors: {design_suggestions.get('color_emphasis')}\n"
+                        if design_suggestions.get("icons_to_use"):
+                            notes_frame.text += f"Icons: {design_suggestions.get('icons_to_use')}\n"
+
+        # Save to temp directory
+        temp_dir = os.path.join(tempfile.gettempdir(), "slidekick_presentations")
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Generate unique filename
+        file_id = session_id or str(uuid.uuid4())[:8]
+        safe_title = "".join(c for c in slides_content.get("title", "presentation")[:30] if c.isalnum() or c in " -_").strip()
+        safe_title = safe_title.replace(" ", "_") or "presentation"
+        filename = f"{safe_title}_{file_id}.pptx"
+        file_path = os.path.join(temp_dir, filename)
+
+        # Save presentation
+        prs.save(file_path)
+
+        result["file_path"] = file_path
+        result["filename"] = filename
+        result["design_tips"] = "\n".join(all_design_tips) if all_design_tips else None
+
+        logger.info("   Created PPTX presentation: %s", filename)
+        return result
+
+    except ImportError:
+        result["error"] = "python-pptx not installed. Run: pip install python-pptx"
+        return result
+    except Exception as e:
+        logger.exception("Failed to create PPTX presentation")
+        result["error"] = f"Failed to create presentation: {str(e)}"
+        return result
+
+
 def generator_node(state: ResearchState) -> dict[str, Any]:
     """
     Generate the final deliverable.
@@ -604,13 +820,14 @@ def generator_node(state: ResearchState) -> dict[str, Any]:
         # Check if user provided an email for sharing (from previous interaction)
         user_share_email = state.get("user_share_email")
 
-        # Try to create actual Google Slides
+        # Try to create actual Google Slides first
         result = _create_google_slides(slides_content, share_email=user_share_email)
 
         output_url = result.get("url")
         error = result.get("error")
 
         if output_url:
+            # Google Slides succeeded
             output_content = f"✅ Created presentation: {output_url}\n\n"
             output_content += f"**{slides_content.get('title', 'Presentation')}**\n\n"
             output_content += "Slides:\n"
@@ -627,19 +844,67 @@ def generator_node(state: ResearchState) -> dict[str, Any]:
                 output_content += "Please provide your email address so I can share the presentation with you.\n"
                 output_content += "\n_You can also set the `GOOGLE_SLIDES_SHARE_EMAIL` environment variable to avoid this in the future._"
         else:
-            # Couldn't create slides, return the structure
-            logger.warning("   Could not create slides: %s", error)
-            output_content = f"**{slides_content.get('title', 'Presentation')}**\n"
-            output_content += f"_{slides_content.get('subtitle', '')}_\n\n"
+            # Google Slides failed - try python-pptx fallback
+            logger.info("   Google Slides unavailable, falling back to PPTX generation")
+            pptx_result = _create_pptx_presentation(slides_content)
 
-            for i, slide in enumerate(slides_content.get("slides", []), 1):
-                output_content += f"### Slide {i}: {slide.get('title', 'Untitled')}\n"
-                for bullet in slide.get("bullets", []):
-                    output_content += f"• {bullet}\n"
-                output_content += "\n"
+            if pptx_result.get("file_path"):
+                # PPTX generation succeeded
+                filename = pptx_result.get("filename")
+                output_content = f"📥 **Presentation Ready for Download**\n\n"
+                output_content += f"**{slides_content.get('title', 'Presentation')}**\n"
+                output_content += f"_{slides_content.get('subtitle', '')}_\n\n"
 
-            if error:
-                output_content += f"\n_Note: {error}_"
+                # Download link placeholder - will be replaced by API with actual URL
+                output_content += f"[DOWNLOAD_PPTX:{filename}]\n\n"
+
+                output_content += "**Slides:**\n"
+                for i, slide in enumerate(slides_content.get("slides", []), 1):
+                    output_content += f"  {i}. {slide.get('title', 'Untitled')}\n"
+
+                # Add design tips
+                output_content += "\n---\n\n"
+                output_content += "**🎨 Design Enhancement Tips**\n\n"
+                output_content += "Your presentation has been generated with a clean template. "
+                output_content += "To polish it further:\n\n"
+                output_content += "1. **Apply a Theme**: Open in PowerPoint/Google Slides → Design → Themes\n"
+                output_content += "2. **Check Speaker Notes**: Each slide has design suggestions in the notes\n"
+                output_content += "3. **Add Visuals**: See per-slide recommendations below\n\n"
+
+                # Add per-slide design suggestions
+                design_tips = pptx_result.get("design_tips")
+                if design_tips:
+                    output_content += "**Per-Slide Recommendations:**\n\n"
+                    output_content += design_tips
+                    output_content += "\n"
+
+                output_content += "\n_Note: Google Slides API is not configured. "
+                output_content += "Presentation generated as downloadable PowerPoint file._"
+
+                # Store file path for API to serve
+                output_url = f"/api/download/{filename}"
+            else:
+                # Both methods failed - return text structure
+                logger.warning("   Could not create PPTX: %s", pptx_result.get("error"))
+                output_content = f"**{slides_content.get('title', 'Presentation')}**\n"
+                output_content += f"_{slides_content.get('subtitle', '')}_\n\n"
+
+                for i, slide in enumerate(slides_content.get("slides", []), 1):
+                    output_content += f"### Slide {i}: {slide.get('title', 'Untitled')}\n"
+                    for bullet in slide.get("bullets", []):
+                        output_content += f"• {bullet}\n"
+
+                    # Include design suggestions even in text fallback
+                    design_suggestions = slide.get("design_suggestions", {})
+                    if design_suggestions:
+                        output_content += "\n*Design suggestions:*\n"
+                        if design_suggestions.get("visual_type"):
+                            output_content += f"  - Visual: {design_suggestions.get('visual_type')}\n"
+                        if design_suggestions.get("layout_tip"):
+                            output_content += f"  - Layout: {design_suggestions.get('layout_tip')}\n"
+                    output_content += "\n"
+
+                output_content += f"\n_Note: Could not generate presentation file. {pptx_result.get('error', error)}_"
     
     elif output_format == OutputFormat.DOCUMENT.value:
         # For now, generate as extended chat response
