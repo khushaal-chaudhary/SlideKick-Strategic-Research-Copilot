@@ -636,7 +636,7 @@ def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> d
     try:
         from pptx import Presentation
         from pptx.util import Inches, Pt
-        from pptx.util import RGBColor
+        from pptx.dml.color import RGBColor
         from pptx.enum.text import PP_ALIGN
 
         # Create presentation
