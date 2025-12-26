@@ -636,8 +636,8 @@ def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> d
     try:
         from pptx import Presentation
         from pptx.util import Inches, Pt
-        from pptx.dml.color import RgbColor
-        from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+        from pptx.util import RGBColor
+        from pptx.enum.text import PP_ALIGN
 
         # Create presentation
         prs = Presentation()
@@ -645,9 +645,9 @@ def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> d
         prs.slide_height = Inches(7.5)
 
         # Color scheme
-        TITLE_COLOR = RgbColor(26, 54, 93)  # Dark blue #1a365d
-        BODY_COLOR = RgbColor(45, 55, 72)   # Dark gray #2d3748
-        ACCENT_COLOR = RgbColor(49, 130, 206)  # Blue accent #3182ce
+        TITLE_COLOR = RGBColor(26, 54, 93)  # Dark blue #1a365d
+        BODY_COLOR = RGBColor(45, 55, 72)   # Dark gray #2d3748
+        ACCENT_COLOR = RGBColor(49, 130, 206)  # Blue accent #3182ce
 
         # Collect design suggestions for output
         all_design_tips = []
