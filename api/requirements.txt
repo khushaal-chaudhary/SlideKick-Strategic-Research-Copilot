@@ -67,3 +67,4 @@ python-louvain>=0.16
 # Presentation Generation
 # =============================================================================
 python-pptx>=0.6.21  # PowerPoint generation fallback
+lxml>=4.9.0          # Required dependency for python-pptx

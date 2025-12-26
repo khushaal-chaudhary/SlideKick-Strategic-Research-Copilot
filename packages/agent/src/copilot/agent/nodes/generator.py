@@ -778,8 +778,17 @@ def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> d
         logger.info("   Created PPTX presentation: %s", filename)
         return result
 
-    except ImportError:
-        result["error"] = "python-pptx not installed. Run: pip install python-pptx"
+    except ImportError as e:
+        # Log the actual import error for debugging
+        logger.error("ImportError in PPTX generation: %s", str(e))
+        # Check if it's specifically python-pptx or a dependency
+        error_msg = str(e).lower()
+        if "pptx" in error_msg:
+            result["error"] = "python-pptx not installed. Run: pip install python-pptx"
+        elif "lxml" in error_msg:
+            result["error"] = f"Missing dependency for python-pptx: {e}. lxml may need to be installed."
+        else:
+            result["error"] = f"Import error during presentation creation: {e}"
         return result
     except Exception as e:
         logger.exception("Failed to create PPTX presentation")
