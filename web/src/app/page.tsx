@@ -8,6 +8,7 @@ import { ResponseViewer } from "@/components/response-viewer";
 import { TechStack } from "@/components/tech-stack";
 import { FutureIterations } from "@/components/future-iterations";
 import { Footer } from "@/components/footer";
+import { ErrorBanner } from "@/components/error-banner";
 import { useResearch } from "@/hooks/use-research";
 import { motion } from "framer-motion";
 
@@ -18,7 +19,9 @@ export default function Home() {
     response,
     qualityScore,
     sources,
+    error,
     submitQuery,
+    clearError,
   } = useResearch();
 
   return (
@@ -33,6 +36,13 @@ export default function Home() {
         <section className="py-8 sm:py-12 border-t border-border/40">
           <div className="container">
             <QueryInput onSubmit={submitQuery} isLoading={isLoading} />
+
+            {/* Error Banner */}
+            {error && (
+              <div className="mt-6">
+                <ErrorBanner error={error} onDismiss={clearError} />
+              </div>
+            )}
 
             {/* Results Grid */}
             {(events.length > 0 || response) && (

@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 import threading
 import uuid
@@ -99,6 +100,73 @@ app.add_middleware(
 # =============================================================================
 
 sessions: dict[str, SessionState] = {}
+
+# =============================================================================
+# Rate Limit Error Parsing
+# =============================================================================
+
+
+def _parse_rate_limit_error(error_message: str) -> dict | None:
+    """
+    Parse Groq rate limit error to extract useful information.
+
+    Example error: "Rate limit reached for model `llama3-70b-8192` in organization
+    `org_...` on tokens per minute (TPM): Limit 7000, Used 0, Requested ~12903.
+    Please try again in 50.597142857s."
+
+    Returns dict with limit_type, limit_value, retry_after, or None if not a rate limit error.
+    """
+    error_str = str(error_message).lower()
+
+    # Check if it's a rate limit error
+    if "rate limit" not in error_str and "429" not in error_str:
+        return None
+
+    result = {
+        "is_rate_limit": True,
+        "limit_type": "unknown",
+        "limit_type_friendly": "Rate limit",
+        "retry_after": None,
+        "retry_after_friendly": "a few moments",
+    }
+
+    error_str_original = str(error_message)
+
+    # Extract limit type (TPM, RPM, RPD)
+    if "tokens per minute" in error_str or "tpm" in error_str:
+        result["limit_type"] = "TPM"
+        result["limit_type_friendly"] = "Tokens per minute limit"
+    elif "requests per minute" in error_str or "rpm" in error_str:
+        result["limit_type"] = "RPM"
+        result["limit_type_friendly"] = "Requests per minute limit"
+    elif "requests per day" in error_str or "rpd" in error_str:
+        result["limit_type"] = "RPD"
+        result["limit_type_friendly"] = "Daily request limit"
+    elif "tokens per day" in error_str:
+        result["limit_type"] = "TPD"
+        result["limit_type_friendly"] = "Daily token limit"
+
+    # Extract retry time
+    retry_match = re.search(r"try again in (\d+\.?\d*)\s*s", error_str)
+    if retry_match:
+        seconds = float(retry_match.group(1))
+        result["retry_after"] = seconds
+        if seconds < 60:
+            result["retry_after_friendly"] = f"{int(seconds)} seconds"
+        elif seconds < 3600:
+            minutes = int(seconds / 60)
+            result["retry_after_friendly"] = f"{minutes} minute{'s' if minutes > 1 else ''}"
+        else:
+            hours = int(seconds / 3600)
+            result["retry_after_friendly"] = f"{hours} hour{'s' if hours > 1 else ''}"
+
+    # Extract limit value if present
+    limit_match = re.search(r"limit[:\s]+(\d+)", error_str)
+    if limit_match:
+        result["limit_value"] = int(limit_match.group(1))
+
+    return result
+
 
 # =============================================================================
 # Health Check & Info Endpoints
@@ -215,17 +283,45 @@ async def stream_events(session_id: str):
             logger.error(f"Error in session {session_id}: {e}")
             session.status = "error"
             session.error = str(e)
-            yield {
-                "event": "message",
-                "data": json.dumps(
-                    {
-                        "type": EventType.ERROR.value,
-                        "session_id": session_id,
-                        "error": str(e),
-                        "timestamp": datetime.utcnow().isoformat(),
-                    }
-                ),
-            }
+
+            # Check if this is a rate limit error
+            rate_limit_info = _parse_rate_limit_error(str(e))
+
+            if rate_limit_info:
+                # Send structured rate limit error
+                yield {
+                    "event": "message",
+                    "data": json.dumps(
+                        {
+                            "type": EventType.ERROR.value,
+                            "session_id": session_id,
+                            "error": f"Groq {rate_limit_info['limit_type_friendly']} reached",
+                            "error_type": "rate_limit",
+                            "rate_limit": {
+                                "limit_type": rate_limit_info["limit_type"],
+                                "limit_type_friendly": rate_limit_info["limit_type_friendly"],
+                                "retry_after": rate_limit_info["retry_after"],
+                                "retry_after_friendly": rate_limit_info["retry_after_friendly"],
+                                "suggestion": "Try again later or switch to Ollama (local model) which has no rate limits.",
+                            },
+                            "timestamp": datetime.utcnow().isoformat(),
+                        }
+                    ),
+                }
+            else:
+                # Send generic error
+                yield {
+                    "event": "message",
+                    "data": json.dumps(
+                        {
+                            "type": EventType.ERROR.value,
+                            "session_id": session_id,
+                            "error": str(e),
+                            "error_type": "general",
+                            "timestamp": datetime.utcnow().isoformat(),
+                        }
+                    ),
+                }
 
     return EventSourceResponse(event_generator())
 

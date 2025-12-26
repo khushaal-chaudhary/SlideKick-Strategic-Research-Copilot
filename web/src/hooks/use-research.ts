@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { API_CONFIG } from "@/lib/constants";
 import type { LogEvent } from "@/components/log-viewer";
+import type { ErrorInfo, RateLimitInfo } from "@/components/error-banner";
 
 export type LLMProvider = "ollama" | "groq";
 
@@ -12,7 +13,7 @@ interface ResearchState {
   response: string | null;
   qualityScore: number | null;
   sources: string[];
-  error: string | null;
+  error: ErrorInfo | null;
 }
 
 export function useResearch() {
@@ -105,7 +106,10 @@ export function useResearch() {
           setState((prev) => ({
             ...prev,
             isLoading: false,
-            error: "Connection error occurred",
+            error: {
+              message: "Connection error occurred. Please check your network and try again.",
+              error_type: "general",
+            },
           }));
         };
 
@@ -114,6 +118,9 @@ export function useResearch() {
           type: string;
           node?: string;
           message?: string;
+          error?: string;
+          error_type?: "rate_limit" | "general";
+          rate_limit?: RateLimitInfo;
           response?: string;
           quality_score?: number;
           sources_used?: string[];
@@ -178,12 +185,16 @@ export function useResearch() {
               break;
 
             case "error":
-              addEvent("error", data.message || "An error occurred");
+              addEvent("error", data.error || data.message || "An error occurred");
               eventSource.close();
               setState((prev) => ({
                 ...prev,
                 isLoading: false,
-                error: data.message || "An error occurred",
+                error: {
+                  message: data.error || data.message || "An error occurred",
+                  error_type: data.error_type || "general",
+                  rate_limit: data.rate_limit,
+                },
               }));
               break;
           }
@@ -193,7 +204,10 @@ export function useResearch() {
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          error: error instanceof Error ? error.message : "Unknown error",
+          error: {
+            message: error instanceof Error ? error.message : "Unknown error",
+            error_type: "general",
+          },
         }));
       }
     },
@@ -215,9 +229,17 @@ export function useResearch() {
     eventIdCounter.current = 0;
   }, []);
 
+  const clearError = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      error: null,
+    }));
+  }, []);
+
   return {
     ...state,
     submitQuery,
     reset,
+    clearError,
   };
 }
