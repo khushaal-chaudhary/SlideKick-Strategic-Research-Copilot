@@ -37,7 +37,7 @@ export function TechStack() {
           className="text-center mb-12"
         >
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            Built with Modern Tech
+            What Makes It Kick
           </h2>
           <p className="mt-3 text-muted-foreground max-w-xl mx-auto">
             A production-ready architecture combining knowledge graphs, LLMs,
