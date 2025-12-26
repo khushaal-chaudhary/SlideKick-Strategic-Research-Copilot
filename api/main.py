@@ -453,15 +453,16 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
                     final = state.get("final_response", "")
                     session.final_response = final
 
-                    # Build sources list dynamically based on what data was retrieved
+                    # Build sources list from accumulated state (last_state has all results)
+                    # The current node's state only has its own fields, not previous nodes' data
                     sources_used = []
-                    if state.get("graph_results"):
+                    if last_state.get("graph_results"):
                         sources_used.append("knowledge_graph")
-                    if state.get("web_results"):
+                    if last_state.get("web_results"):
                         sources_used.append("web_search")
-                    if state.get("financial_results"):
+                    if last_state.get("financial_results"):
                         sources_used.append("financial_api")
-                    if state.get("vector_results"):
+                    if last_state.get("vector_results"):
                         sources_used.append("vector_search")
                     # Fallback if no sources detected
                     if not sources_used:
@@ -470,8 +471,8 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
                     yield await _emit_final_response(
                         session_id,
                         final,
-                        state.get("quality_score", 0.8),
-                        state.get("iteration", 1),
+                        last_state.get("quality_score", state.get("quality_score", 0.8)),
+                        last_state.get("iteration", state.get("iteration", 1)),
                         sources_used,
                     )
 

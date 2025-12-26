@@ -108,7 +108,9 @@ export function LogViewer({ events, isActive = false }: LogViewerProps) {
               </div>
             ) : (
               <AnimatePresence mode="popLayout">
-                {events.map((event) => (
+                {events.map((event, index) => {
+                  const isLastEvent = index === events.length - 1;
+                  return (
                   <motion.div
                     key={event.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -129,7 +131,9 @@ export function LogViewer({ events, isActive = false }: LogViewerProps) {
                         >
                           {getEventIcon(event)}
                         </div>
-                        <div className="w-px flex-1 bg-border/50 mt-2" />
+                        {!isLastEvent && (
+                          <div className="w-px flex-1 bg-border/50 mt-2" />
+                        )}
                       </div>
 
                       <div className="flex-1 pb-4">
@@ -176,7 +180,8 @@ export function LogViewer({ events, isActive = false }: LogViewerProps) {
                       </div>
                     </div>
                   </motion.div>
-                ))}
+                  );
+                })}
               </AnimatePresence>
             )}
           </div>
