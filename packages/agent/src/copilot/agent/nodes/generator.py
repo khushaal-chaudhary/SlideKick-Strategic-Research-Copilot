@@ -46,7 +46,7 @@ Keep the response focused and actionable. For strategic queries, include recomme
 """
 
 
-SLIDES_CONTENT_PROMPT = """You are creating an executive presentation that is both informative AND visually appealing.
+SLIDES_CONTENT_PROMPT = """You are creating an executive presentation that is informative, substantive, and visually clean.
 
 ## Original Query
 {query}
@@ -60,40 +60,48 @@ SLIDES_CONTENT_PROMPT = """You are creating an executive presentation that is bo
 ## Task
 Create a slide deck structure with:
 1. Title slide (compelling title + subtitle)
-2. Executive summary (3 key takeaways maximum)
+2. Executive summary (3 key takeaways)
 3. 2-4 content slides (one per major insight)
 4. Recommendations/Next Steps slide
 
-## AESTHETIC DESIGN GUIDELINES (Critical)
-Follow these principles for professional, visually appealing slides:
+## CONTENT GUIDELINES (Critical)
 
-### Text & Content Rules
-- **Maximum 5 bullets per slide** - Less is more
-- **Keep bullets under 10 words each** - Concise, punchy language
-- **Use action verbs** to start bullets (Drive, Implement, Analyze, etc.)
-- **No paragraphs** - Only short phrases or single sentences
-- **Consistent capitalization** - Title Case for titles, Sentence case for bullets
+### Bullet Structure - Use "Key Point: Explanation" Format
+Each bullet should have TWO parts:
+1. **Key Point** (2-5 words) - The main idea, bolded or highlighted
+2. **Explanation** (15-25 words) - Context, data, or supporting detail
+
+**GOOD bullet examples:**
+- "AI-First Strategy: Microsoft is prioritizing AI integration across all products, investing $10B+ annually in Azure AI and Copilot services"
+- "Revenue Growth 29% YoY: Cloud segment drove majority of growth, with enterprise customers accelerating migration timelines"
+- "Competitive Moat: OpenAI partnership provides exclusive access to GPT models, differentiating against AWS and Google Cloud offerings"
+
+**BAD bullet examples (too short):**
+- "AI focus"
+- "Cloud growth"
+- "Market leader"
+
+### Content Rules
+- **Maximum 4 bullets per slide** - Quality over quantity
+- **Each bullet: 20-35 words** - Substantive but scannable
+- **Include specific data** when available (percentages, dollar amounts, timeframes)
+- **Explain the "so what"** - Don't just state facts, explain their significance
 
 ### Visual Hierarchy
 - **Title**: Clear, descriptive, under 8 words
-- **Subtitle**: Supporting context (dates, categories)
-- **Body**: Scannable in under 5 seconds
+- **Subtitle**: Supporting context (dates, scope)
+- **Body**: Each bullet should be independently meaningful
 
-### Slide Type Best Practices
-- **Title Slide**: Bold statement + clear subtitle, no clutter
-- **Executive Summary**: Exactly 3 bullets - the "So What?" takeaways
-- **Content Slides**: One key idea per slide with supporting points
-- **Recommendations**: Actionable, specific, measurable items
+### Slide Type Requirements
+- **Title Slide**: Bold statement + clear subtitle
+- **Executive Summary**: 3 bullets - each a complete insight with context
+- **Content Slides**: One theme per slide, 3-4 detailed bullets with evidence
+- **Recommendations**: Specific, actionable items with expected outcomes
 
 ### Speaker Notes & Design Suggestions
 For EACH slide, include:
-- **speaker_notes**: Presenter talking points (2-3 sentences) with data sources
-- **design_suggestions**: Specific visual enhancement ideas including:
-  - visual_type: Chart type, diagram, or image suggestion (e.g., "bar chart", "flowchart", "timeline", "icon grid")
-  - visual_description: What the visual should show
-  - layout_tip: How to arrange content (e.g., "2-column: bullets left, chart right")
-  - color_emphasis: What to highlight with color (e.g., "Use green for growth metrics, red for risks")
-  - icons_to_use: Relevant icons or emojis (e.g., "📈 for growth", "🎯 for goals", "⚡ for speed")
+- **speaker_notes**: Detailed talking points (3-4 sentences), data sources, and transition cues
+- **design_suggestions**: Visual enhancement ideas
 
 ## Response Format (JSON):
 {{
@@ -103,33 +111,41 @@ For EACH slide, include:
         {{
             "type": "title",
             "title": "Main Title",
-            "subtitle": "Subtitle",
+            "subtitle": "Subtitle with context",
             "design_suggestions": {{
                 "visual_type": "background image or gradient",
-                "visual_description": "Professional abstract background with company colors",
+                "visual_description": "Professional abstract background",
                 "layout_tip": "Center-aligned, clean with ample whitespace",
-                "color_emphasis": "Bold title in dark blue (#1a365d), subtitle in gray",
+                "color_emphasis": "Bold title in dark blue, subtitle in gray",
                 "icons_to_use": "Company logo if available"
             }}
         }},
         {{
             "type": "executive_summary",
             "title": "Executive Summary",
-            "bullets": ["Key takeaway 1", "Key takeaway 2", "Key takeaway 3"],
-            "speaker_notes": "Open with the bottom line. These three points summarize our findings.",
+            "bullets": [
+                "Strategic Shift to AI: Company has repositioned entire product portfolio around AI capabilities, with 40% of R&D now dedicated to machine learning initiatives",
+                "Strong Financial Performance: Revenue increased 18% year-over-year to $52B, driven primarily by cloud services and enterprise software subscriptions",
+                "Market Position Strengthened: Expanded market share in three key segments while maintaining industry-leading profit margins of 35%"
+            ],
+            "speaker_notes": "Open with these three key takeaways. Each represents a major theme from our analysis. Note that the AI shift is the most significant strategic change we identified.",
             "design_suggestions": {{
-                "visual_type": "3-column icon grid",
-                "visual_description": "Each takeaway as a card with an icon above",
-                "layout_tip": "Three equal columns, icon on top, text below",
-                "color_emphasis": "Use accent color for icons, dark text for content",
-                "icons_to_use": "📊 for data insights, 💡 for strategies, 🎯 for goals"
+                "visual_type": "3-column card layout",
+                "visual_description": "Each takeaway as a card with icon above",
+                "layout_tip": "Three equal columns, generous padding",
+                "color_emphasis": "Use accent color for key metrics",
+                "icons_to_use": "🤖 for AI, 📈 for growth, 🎯 for market position"
             }}
         }},
         {{
             "type": "content",
-            "title": "Insight Title",
-            "bullets": ["Point 1", "Point 2", "Point 3"],
-            "speaker_notes": "Additional context for presenter with supporting data.",
+            "title": "Content Slide Title",
+            "bullets": [
+                "Key Finding: Detailed explanation with supporting evidence and specific data points that substantiate the claim",
+                "Supporting Point: Additional context that helps the audience understand the significance and implications",
+                "Evidence: Specific metrics, quotes, or examples that validate the insight being presented"
+            ],
+            "speaker_notes": "Walk through each point systematically. The first bullet is the main insight - spend 30 seconds here. Supporting points provide context.",
             "design_suggestions": {{
                 "visual_type": "Specific chart or diagram type",
                 "visual_description": "Description of what the visual shows",
@@ -141,20 +157,24 @@ For EACH slide, include:
         {{
             "type": "recommendations",
             "title": "Recommended Actions",
-            "bullets": ["Action 1: Specific step", "Action 2: Specific step", "Action 3: Specific step"],
-            "speaker_notes": "Close with clear next steps and owners.",
+            "bullets": [
+                "Immediate Action: Specific step to take within 30 days, with expected outcome and resource requirements",
+                "Short-term Initiative: 90-day project or program to address identified opportunity or gap",
+                "Strategic Investment: Longer-term commitment that positions the organization for sustained competitive advantage"
+            ],
+            "speaker_notes": "Close with clear next steps. Each recommendation should be actionable and measurable. Offer to discuss prioritization.",
             "design_suggestions": {{
-                "visual_type": "numbered list or roadmap",
-                "visual_description": "Timeline or step-by-step visual",
-                "layout_tip": "Numbered items with clear hierarchy",
-                "color_emphasis": "Use action colors (blue for immediate, green for ongoing)",
-                "icons_to_use": "✅ for action items, 📅 for timelines, 👤 for ownership"
+                "visual_type": "numbered list or timeline",
+                "visual_description": "Roadmap showing sequence of actions",
+                "layout_tip": "Numbered items with clear visual hierarchy",
+                "color_emphasis": "Blue for immediate, green for short-term, purple for strategic",
+                "icons_to_use": "✅ for actions, 📅 for timelines, 🎯 for outcomes"
             }}
         }}
     ]
 }}
 
-Respond with valid JSON only. Include specific, actionable design suggestions for each slide to help users enhance the basic template.
+Respond with valid JSON only. Each bullet MUST follow the "Key Point: Explanation" format with 20-35 words total.
 """
 
 
@@ -722,7 +742,7 @@ def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> d
                 # Bullets
                 if bullets:
                     body_box = slide.shapes.add_textbox(
-                        Inches(0.5), Inches(1.6), Inches(12.333), Inches(5)
+                        Inches(0.5), Inches(1.5), Inches(12.333), Inches(5.5)
                     )
                     body_frame = body_box.text_frame
                     body_frame.word_wrap = True
@@ -733,9 +753,9 @@ def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> d
                         else:
                             para = body_frame.add_paragraph()
                         para.text = f"• {bullet}"
-                        para.font.size = Pt(20)
+                        para.font.size = Pt(18)  # Slightly smaller for longer content
                         para.font.color.rgb = BODY_COLOR
-                        para.space_after = Pt(12)
+                        para.space_after = Pt(16)  # More spacing between bullets
 
                 # Add speaker notes
                 if speaker_notes:
