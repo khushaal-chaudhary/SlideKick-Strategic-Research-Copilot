@@ -100,6 +100,7 @@ app.add_middleware(
 # =============================================================================
 
 sessions: dict[str, SessionState] = {}
+sessions_lock = threading.Lock()
 
 # =============================================================================
 # Rate Limit Error Parsing
@@ -209,7 +210,8 @@ async def submit_query(request: QueryRequest):
         llm_provider=request.llm_provider,
         status="pending",
     )
-    sessions[session_id] = session
+    with sessions_lock:
+        sessions[session_id] = session
 
     logger.info(f"New query submitted: {session_id} - {request.query[:50]}... (provider={request.llm_provider.value})")
 
@@ -229,12 +231,13 @@ async def stream_events(session_id: str):
     This endpoint provides live updates as the agent processes the query,
     including node transitions, retrieval results, insights, and the final response.
     """
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
+    with sessions_lock:
+        if session_id not in sessions:
+            raise HTTPException(status_code=404, detail="Session not found")
+        session = sessions[session_id]
 
     async def event_generator() -> AsyncGenerator[dict, None]:
         """Generate SSE events for the research session."""
-        session = sessions[session_id]
 
         try:
             # Mark session as processing
@@ -342,7 +345,8 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
         query: The research question
         llm_provider: LLM provider to use ("ollama" or "groq")
     """
-    session = sessions[session_id]
+    with sessions_lock:
+        session = sessions[session_id]
     event_queue: Queue = Queue()
 
     # Map LangGraph node names to our AgentNode enum
@@ -394,6 +398,9 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
             try:
                 msg_type, payload = event_queue.get_nowait()
             except Empty:
+                # If the thread died without putting anything in the queue, bail out
+                if not agent_thread.is_alive():
+                    raise RuntimeError("Agent thread terminated unexpectedly without producing results")
                 continue
 
             if msg_type == "done":
@@ -593,7 +600,8 @@ async def _run_demo_agent(session_id: str, query: str) -> AsyncGenerator[dict, N
 
     Used when the real agent is not available.
     """
-    session = sessions[session_id]
+    with sessions_lock:
+        session = sessions[session_id]
 
     # Node 1: Planner
     yield await _emit_node_event(
@@ -930,10 +938,10 @@ async def _emit_final_response(
 @app.get("/api/session/{session_id}")
 async def get_session(session_id: str):
     """Get the current state of a research session."""
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    session = sessions[session_id]
+    with sessions_lock:
+        if session_id not in sessions:
+            raise HTTPException(status_code=404, detail="Session not found")
+        session = sessions[session_id]
     return {
         "session_id": session.session_id,
         "query": session.query,

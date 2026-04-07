@@ -81,9 +81,11 @@ def _format_results(results: list[dict], max_items: int = 20) -> str:
         if "entity" in item:
             # Knowledge graph entity
             formatted.append(f"- Entity: {item['entity']} (Types: {item.get('types', [])})")
-            if item.get("relationships"):
-                for rel in item["relationships"][:3]:
-                    formatted.append(f"  → {rel.get('rel', '?')}: {rel.get('target', '?')}")
+            relationships = item.get("relationships")
+            if relationships and isinstance(relationships, list):
+                for rel in relationships[:3]:
+                    if isinstance(rel, dict):
+                        formatted.append(f"  → {rel.get('rel', '?')}: {rel.get('target', '?')}")
         elif "source" in item and "target" in item and "relationship" in item:
             # Knowledge graph relationship
             formatted.append(

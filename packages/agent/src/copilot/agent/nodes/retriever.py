@@ -14,6 +14,9 @@ Web Search powered by Tavily - provides AI-summarized results with full content.
 import logging
 from typing import Any
 
+import requests
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
 from copilot.agent.state import ResearchState, RefinementType, RetrievalStrategy
 from copilot.config.settings import settings
 
@@ -27,18 +30,26 @@ logger = logging.getLogger(__name__)
 def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
     """
     Query the Neo4j knowledge graph.
-    
+
     Args:
         query: Search query
         entities: Specific entities to focus on
-        
+
     Returns:
         Dict with source, results, count, and confidence
     """
     from copilot.graph.connection import graph_connection
-    
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        reraise=True,
+    )
+    def _run_cypher(cypher, params):
+        return graph_connection.query(cypher, params=params)
+
     results = []
-    
+
     try:
         # Strategy 1: Search by entities if we have them
         if entities:
@@ -50,7 +61,7 @@ def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
                            m.id AS target, labels(n) AS source_type, labels(m) AS target_type
                     LIMIT 20
                 """
-                entity_results = graph_connection.query(cypher, params={"entity": entity})
+                entity_results = _run_cypher(cypher, {"entity": entity})
                 results.extend(entity_results)
         
         # Strategy 2: General search with key terms from query
@@ -65,7 +76,7 @@ def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
         search_terms = query.lower().split()[:3]
         for term in search_terms:
             if len(term) > 3:
-                query_results = graph_connection.query(cypher, params={"search": term})
+                query_results = _run_cypher(cypher, {"search": term})
                 results.extend(query_results)
         
         # Deduplicate
@@ -133,17 +144,25 @@ def _query_web_tavily(query: str, max_results: int = 5) -> dict[str, Any]:
     
     try:
         from tavily import TavilyClient
-        
+
         client = TavilyClient(api_key=api_key)
-        
-        # Use advanced search for better results
-        response = client.search(
-            query=query,
-            search_depth="advanced",  # More thorough search
-            max_results=max_results,
-            include_answer=True,       # Get AI-generated summary!
-            include_raw_content=False, # We don't need raw HTML
+
+        # Retryable search call — transient network/server errors are common
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=1, max=10),
+            reraise=True,
         )
+        def _tavily_search():
+            return client.search(
+                query=query,
+                search_depth="advanced",
+                max_results=max_results,
+                include_answer=True,
+                include_raw_content=False,
+            )
+
+        response = _tavily_search()
         
         # Extract AI-generated answer
         ai_answer = response.get("answer", "")
@@ -306,8 +325,6 @@ def _query_financial_data(symbols: list[str], query: str = "") -> dict[str, Any]
     Returns:
         Dict with source, results (company data, quotes, metrics), count, confidence
     """
-    import requests
-
     logger.info("   💰 Executing financial data query for: %s", symbols)
 
     api_key = settings.alpha_vantage_api_key_str
@@ -327,6 +344,15 @@ def _query_financial_data(symbols: list[str], query: str = "") -> dict[str, Any]
     base_url = "https://www.alphavantage.co/query"
     results = []
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((requests.ConnectionError, requests.Timeout)),
+        reraise=True,
+    )
+    def _av_get(params):
+        return requests.get(base_url, params=params, timeout=10)
+
     try:
         for symbol in symbols[:5]:  # Limit to 5 symbols to avoid rate limits
             symbol = symbol.upper().strip()
@@ -334,10 +360,8 @@ def _query_financial_data(symbols: list[str], query: str = "") -> dict[str, Any]
 
             # 1. Get Company Overview (fundamentals)
             try:
-                overview_resp = requests.get(
-                    base_url,
-                    params={"function": "OVERVIEW", "symbol": symbol, "apikey": api_key},
-                    timeout=10,
+                overview_resp = _av_get(
+                    {"function": "OVERVIEW", "symbol": symbol, "apikey": api_key}
                 )
                 overview = overview_resp.json()
 
@@ -367,10 +391,8 @@ def _query_financial_data(symbols: list[str], query: str = "") -> dict[str, Any]
 
             # 2. Get Current Stock Quote
             try:
-                quote_resp = requests.get(
-                    base_url,
-                    params={"function": "GLOBAL_QUOTE", "symbol": symbol, "apikey": api_key},
-                    timeout=10,
+                quote_resp = _av_get(
+                    {"function": "GLOBAL_QUOTE", "symbol": symbol, "apikey": api_key}
                 )
                 quote = quote_resp.json()
 
@@ -390,10 +412,8 @@ def _query_financial_data(symbols: list[str], query: str = "") -> dict[str, Any]
 
             # 3. Get Income Statement (annual)
             try:
-                income_resp = requests.get(
-                    base_url,
-                    params={"function": "INCOME_STATEMENT", "symbol": symbol, "apikey": api_key},
-                    timeout=10,
+                income_resp = _av_get(
+                    {"function": "INCOME_STATEMENT", "symbol": symbol, "apikey": api_key}
                 )
                 income = income_resp.json()
 
@@ -417,16 +437,12 @@ def _query_financial_data(symbols: list[str], query: str = "") -> dict[str, Any]
         if query and symbols:
             try:
                 # Use first symbol for news
-                news_resp = requests.get(
-                    base_url,
-                    params={
-                        "function": "NEWS_SENTIMENT",
-                        "tickers": ",".join(symbols[:3]),
-                        "limit": 5,
-                        "apikey": api_key,
-                    },
-                    timeout=10,
-                )
+                news_resp = _av_get({
+                    "function": "NEWS_SENTIMENT",
+                    "tickers": ",".join(symbols[:3]),
+                    "limit": 5,
+                    "apikey": api_key,
+                })
                 news = news_resp.json()
 
                 if "feed" in news:

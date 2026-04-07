@@ -7,6 +7,7 @@ it PLANS how to answer. This enables multi-step research.
 
 import json
 import logging
+import re
 from typing import Any
 
 from langchain_core.messages import HumanMessage
@@ -127,34 +128,39 @@ Respond with valid JSON only, no markdown formatting.
 
 
 def _parse_plan_response(response: str) -> dict[str, Any]:
-    """Parse the LLM's planning response."""
-    # Clean up response (remove markdown code blocks if present)
+    """Parse the LLM's planning response, trying multiple extraction strategies."""
+    # Strategy 1: Clean markdown code blocks
     cleaned = response.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.split("```")[1]
         if cleaned.startswith("json"):
             cleaned = cleaned[4:]
     cleaned = cleaned.strip()
-    
+
     try:
         return json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        logger.error("Failed to parse plan JSON: %s", e)
-        # Return a default plan
-        return {
-            "query_type": QueryType.UNKNOWN.value,
-            "entities_of_interest": [],
-            "retrieval_strategy": RetrievalStrategy.HYBRID.value,
-            "output_format": OutputFormat.CHAT.value,
-            "research_plan": [
-                {
-                    "step": 1,
-                    "description": "Direct search for relevant information",
-                    "query": "",  # Will use original query
-                }
-            ],
-            "reasoning": "Fallback plan due to parsing error",
-        }
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 2: Find the first { ... } block in the response
+    match = re.search(r"\{.*\}", response, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
+
+    logger.error("Failed to parse plan JSON from LLM response (len=%d)", len(response))
+    # Return a default plan — note: query intentionally left empty so
+    # planner_node fills it with the original query via the fallback below.
+    return {
+        "query_type": QueryType.UNKNOWN.value,
+        "entities_of_interest": [],
+        "retrieval_strategy": RetrievalStrategy.HYBRID.value,
+        "output_format": OutputFormat.CHAT.value,
+        "research_plan": [],
+        "reasoning": "Fallback plan due to parsing error",
+    }
 
 
 def planner_node(state: ResearchState) -> dict[str, Any]:
