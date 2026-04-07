@@ -46,10 +46,13 @@ Keep the response focused and actionable. For strategic queries, include recomme
 """
 
 
-SLIDES_CONTENT_PROMPT = """You are creating an executive presentation that is informative, substantive, and visually clean.
+SLIDES_CONTENT_PROMPT = """You are creating a structured slide deck for an executive presentation.
 
 ## Original Query
 {query}
+
+## Query Type
+{query_type}
 
 ## Key Insights
 {insights}
@@ -57,124 +60,77 @@ SLIDES_CONTENT_PROMPT = """You are creating an executive presentation that is in
 ## Full Synthesis
 {synthesis}
 
-## Task
-Create a slide deck structure with:
-1. Title slide (compelling title + subtitle)
-2. Executive summary (3 key takeaways)
-3. 2-4 content slides (one per major insight)
-4. Recommendations/Next Steps slide
+## Your Job
+Pick a color theme, then build 5-8 slides using the typed layouts below. You decide WHAT content goes on each slide and WHICH layout best fits that content. The visual design is handled automatically — you just fill content slots.
 
-## CONTENT GUIDELINES (Critical)
+## Theme Choices (pick ONE)
+- "slate" — Dark navy + white. Best for corporate/executive presentations.
+- "growth" — Deep green + gold. Best for financial/investment content.
+- "clarity" — White + blue. Best for product/technology topics.
+- "bold" — Black + electric accent. Best for startup/pitch energy.
+- "warm" — Off-white + terracotta. Best for strategy/consulting.
 
-### Bullet Structure - Use "Key Point: Explanation" Format
-Each bullet should have TWO parts:
-1. **Key Point** (2-5 words) - The main idea, bolded or highlighted
-2. **Explanation** (15-25 words) - Context, data, or supporting detail
+## Available Layouts
 
-**GOOD bullet examples:**
-- "AI-First Strategy: Microsoft is prioritizing AI integration across all products, investing $10B+ annually in Azure AI and Copilot services"
-- "Revenue Growth 29% YoY: Cloud segment drove majority of growth, with enterprise customers accelerating migration timelines"
-- "Competitive Moat: OpenAI partnership provides exclusive access to GPT models, differentiating against AWS and Google Cloud offerings"
+### "title" — Opening slide
+content: {{ "headline": "string", "subtitle": "string" }}
 
-**BAD bullet examples (too short):**
-- "AI focus"
-- "Cloud growth"
-- "Market leader"
+### "stat-trio" — Three key metrics side by side
+content: {{ "title": "string", "stats": [ {{ "value": "$52B", "label": "Revenue", "delta": "+18% YoY" }}, ... ] }}
+Rules: Exactly 3 stats. "value" should be short (number + unit). "delta" is a change indicator.
 
-### Content Rules
-- **Maximum 4 bullets per slide** - Quality over quantity
-- **Each bullet: 20-35 words** - Substantive but scannable
-- **Include specific data** when available (percentages, dollar amounts, timeframes)
-- **Explain the "so what"** - Don't just state facts, explain their significance
+### "bullets" — Narrative content with rich bullet points
+content: {{ "title": "string", "category": "strategy|financial_metric|risk|opportunity|technology|competition|growth|leadership", "bullets": [ {{ "heading": "2-5 word key point", "detail": "15-25 word explanation with data" }}, ... ] }}
+Rules: 3-4 bullets max. Each bullet has a heading AND a detail.
 
-### Visual Hierarchy
-- **Title**: Clear, descriptive, under 8 words
-- **Subtitle**: Supporting context (dates, scope)
-- **Body**: Each bullet should be independently meaningful
+### "two-column" — Side-by-side comparison
+content: {{ "title": "string", "left": {{ "label": "string", "points": ["string", ...] }}, "right": {{ "label": "string", "points": ["string", ...] }} }}
+Rules: 2-4 points per side. Use for comparisons, pros/cons, before/after.
 
-### Slide Type Requirements
-- **Title Slide**: Bold statement + clear subtitle
-- **Executive Summary**: 3 bullets - each a complete insight with context
-- **Content Slides**: One theme per slide, 3-4 detailed bullets with evidence
-- **Recommendations**: Specific, actionable items with expected outcomes
+### "quote-callout" — Highlight a key finding
+content: {{ "title": "string", "category": "strategy|financial_metric|risk|opportunity|technology|competition|growth|leadership", "quote": "The key insight or finding (1-2 sentences)", "attribution": "Based on...", "supporting": "Additional context line" }}
 
-### Speaker Notes & Design Suggestions
-For EACH slide, include:
-- **speaker_notes**: Detailed talking points (3-4 sentences), data sources, and transition cues
-- **design_suggestions**: Visual enhancement ideas
+### "timeline" — Chronological events
+content: {{ "title": "string", "events": [ {{ "date": "2020", "label": "What happened (8-15 words)" }}, ... ] }}
+Rules: 3-6 events. Dates can be years, quarters, or months.
 
-## Response Format (JSON):
+### "closing" — Recommendations and next steps
+content: {{ "title": "string", "actions": [ {{ "heading": "Immediate/Short-term/Strategic", "detail": "Specific actionable recommendation (15-25 words)" }}, ... ] }}
+Rules: 2-4 actions.
+
+## Slide Deck Guidelines
+1. ALWAYS start with a "title" slide
+2. ALWAYS end with a "closing" slide
+3. Use "stat-trio" when you have quantitative metrics — executives love numbers
+4. Use "quote-callout" for your single strongest insight
+5. Use "two-column" for any comparative analysis
+6. Use "timeline" if the query involves evolution or history
+7. Use "bullets" for everything else — it's your workhorse
+8. Each slide should have speaker_notes (2-3 sentences for the presenter)
+9. For financial queries, prefer "growth" theme and lead with "stat-trio"
+10. For strategic queries, prefer "slate" theme
+11. For comparative queries, always include at least one "two-column"
+
+## Response Format (JSON)
 {{
+    "theme": "slate",
     "title": "Presentation Title",
-    "subtitle": "Subtitle or date",
+    "subtitle": "Subtitle",
     "slides": [
         {{
-            "type": "title",
-            "title": "Main Title",
-            "subtitle": "Subtitle with context",
-            "design_suggestions": {{
-                "visual_type": "background image or gradient",
-                "visual_description": "Professional abstract background",
-                "layout_tip": "Center-aligned, clean with ample whitespace",
-                "color_emphasis": "Bold title in dark blue, subtitle in gray",
-                "icons_to_use": "Company logo if available"
-            }}
+            "layout": "title",
+            "content": {{ "headline": "...", "subtitle": "..." }},
+            "speaker_notes": "..."
         }},
         {{
-            "type": "executive_summary",
-            "title": "Executive Summary",
-            "bullets": [
-                "Strategic Shift to AI: Company has repositioned entire product portfolio around AI capabilities, with 40% of R&D now dedicated to machine learning initiatives",
-                "Strong Financial Performance: Revenue increased 18% year-over-year to $52B, driven primarily by cloud services and enterprise software subscriptions",
-                "Market Position Strengthened: Expanded market share in three key segments while maintaining industry-leading profit margins of 35%"
-            ],
-            "speaker_notes": "Open with these three key takeaways. Each represents a major theme from our analysis. Note that the AI shift is the most significant strategic change we identified.",
-            "design_suggestions": {{
-                "visual_type": "3-column card layout",
-                "visual_description": "Each takeaway as a card with icon above",
-                "layout_tip": "Three equal columns, generous padding",
-                "color_emphasis": "Use accent color for key metrics",
-                "icons_to_use": "🤖 for AI, 📈 for growth, 🎯 for market position"
-            }}
-        }},
-        {{
-            "type": "content",
-            "title": "Content Slide Title",
-            "bullets": [
-                "Key Finding: Detailed explanation with supporting evidence and specific data points that substantiate the claim",
-                "Supporting Point: Additional context that helps the audience understand the significance and implications",
-                "Evidence: Specific metrics, quotes, or examples that validate the insight being presented"
-            ],
-            "speaker_notes": "Walk through each point systematically. The first bullet is the main insight - spend 30 seconds here. Supporting points provide context.",
-            "design_suggestions": {{
-                "visual_type": "Specific chart or diagram type",
-                "visual_description": "Description of what the visual shows",
-                "layout_tip": "Suggested layout arrangement",
-                "color_emphasis": "What to highlight with color",
-                "icons_to_use": "Relevant icons for this content"
-            }}
-        }},
-        {{
-            "type": "recommendations",
-            "title": "Recommended Actions",
-            "bullets": [
-                "Immediate Action: Specific step to take within 30 days, with expected outcome and resource requirements",
-                "Short-term Initiative: 90-day project or program to address identified opportunity or gap",
-                "Strategic Investment: Longer-term commitment that positions the organization for sustained competitive advantage"
-            ],
-            "speaker_notes": "Close with clear next steps. Each recommendation should be actionable and measurable. Offer to discuss prioritization.",
-            "design_suggestions": {{
-                "visual_type": "numbered list or timeline",
-                "visual_description": "Roadmap showing sequence of actions",
-                "layout_tip": "Numbered items with clear visual hierarchy",
-                "color_emphasis": "Blue for immediate, green for short-term, purple for strategic",
-                "icons_to_use": "✅ for actions, 📅 for timelines, 🎯 for outcomes"
-            }}
+            "layout": "stat-trio",
+            "content": {{ "title": "...", "stats": [...] }},
+            "speaker_notes": "..."
         }}
     ]
 }}
 
-Respond with valid JSON only. Each bullet MUST follow the "Key Point: Explanation" format with 20-35 words total.
+Respond with valid JSON only, no markdown formatting.
 """
 
 
@@ -266,17 +222,18 @@ def _generate_bullet_summary(state: ResearchState) -> str:
 
 
 def _generate_slides_content(state: ResearchState) -> dict[str, Any]:
-    """Generate slide deck structure."""
+    """Generate slide deck structure using typed layouts."""
     llm = get_llm(temperature=0.3)
-    
+
     prompt = SLIDES_CONTENT_PROMPT.format(
         query=state["original_query"],
+        query_type=state.get("query_type", "strategic"),
         insights=_format_insights_for_generation(state.get("insights", [])),
         synthesis=state.get("synthesis", ""),
     )
-    
+
     response = llm.invoke(prompt)
-    
+
     # Parse JSON response
     cleaned = response.content.strip()
     if cleaned.startswith("```"):
@@ -284,19 +241,59 @@ def _generate_slides_content(state: ResearchState) -> dict[str, Any]:
         if cleaned.startswith("json"):
             cleaned = cleaned[4:]
     cleaned = cleaned.strip()
-    
+
     try:
-        return json.loads(cleaned)
+        data = json.loads(cleaned)
     except json.JSONDecodeError:
-        # Fallback structure
-        return {
+        # Try regex extraction
+        import re
+        match = re.search(r"\{.*\}", response.content, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group())
+            except json.JSONDecodeError:
+                data = None
+        else:
+            data = None
+
+    if not data or "slides" not in data:
+        # Fallback structure using typed layouts
+        synthesis = state.get("synthesis", "Analysis results are available.")
+        data = {
+            "theme": "slate",
             "title": "Research Findings",
-            "subtitle": state["original_query"][:50],
+            "subtitle": state["original_query"][:60],
             "slides": [
-                {"type": "title", "title": "Research Findings", "subtitle": "Analysis Results"},
-                {"type": "content", "title": "Summary", "bullets": [state.get("synthesis", "")[:200]]},
+                {
+                    "layout": "title",
+                    "content": {"headline": "Research Findings", "subtitle": state["original_query"][:60]},
+                    "speaker_notes": "Opening slide.",
+                },
+                {
+                    "layout": "bullets",
+                    "content": {
+                        "title": "Summary",
+                        "category": "strategy",
+                        "bullets": [{"heading": "Key Finding", "detail": synthesis[:200]}],
+                    },
+                    "speaker_notes": "Main findings from the analysis.",
+                },
+                {
+                    "layout": "closing",
+                    "content": {
+                        "title": "Next Steps",
+                        "actions": [{"heading": "Review", "detail": "Review findings and determine follow-up research areas."}],
+                    },
+                    "speaker_notes": "Closing remarks.",
+                },
             ],
         }
+
+    # Ensure theme is set
+    if "theme" not in data:
+        data["theme"] = "slate"
+
+    return data
 
 
 def _convert_to_mcp_batch_requests(slides_content: dict, presentation_id: str) -> list[dict]:
@@ -833,10 +830,11 @@ def generator_node(state: ResearchState) -> dict[str, Any]:
     query_type = state.get("query_type", QueryType.UNKNOWN.value)
     
     logger.info("🎨 Generator: Creating %s output...", output_format)
-    
+
     output_content = ""
     output_url = None
-    
+    slides_content = None
+
     if output_format == OutputFormat.CHAT.value:
         output_content = _generate_chat_response(state)
         
@@ -850,90 +848,32 @@ def generator_node(state: ResearchState) -> dict[str, Any]:
         user_share_email = state.get("user_share_email")
 
         # Try to create actual Google Slides first
-        result = _create_google_slides(slides_content, share_email=user_share_email)
+        google_slides_url = None
+        try:
+            result = _create_google_slides(slides_content, share_email=user_share_email)
+            google_slides_url = result.get("url")
+        except Exception as e:
+            logger.info("   Google Slides unavailable: %s", e)
 
-        output_url = result.get("url")
-        error = result.get("error")
-
-        if output_url:
-            # Google Slides succeeded
-            output_content = f"✅ Created presentation: {output_url}\n\n"
+        if google_slides_url:
+            output_url = google_slides_url
+            output_content = f"✅ Created presentation: {google_slides_url}\n\n"
             output_content += f"**{slides_content.get('title', 'Presentation')}**\n\n"
             output_content += "Slides:\n"
             for i, slide in enumerate(slides_content.get("slides", []), 1):
-                output_content += f"  {i}. {slide.get('title', 'Untitled')}\n"
+                title = slide.get("content", {}).get("title", slide.get("content", {}).get("headline", "Untitled"))
+                output_content += f"  {i}. {title}\n"
 
-            # Add sharing status
             if result.get("shared"):
                 share_email = user_share_email or _get_share_email()
                 output_content += f"\n✅ Shared with: {share_email}\n"
-                output_content += "You should receive an email notification with access to the presentation."
-            elif result.get("share_email_needed"):
-                output_content += "\n⚠️ **Action Required**: The presentation was created but I couldn't share it with you.\n"
-                output_content += "Please provide your email address so I can share the presentation with you.\n"
-                output_content += "\n_You can also set the `GOOGLE_SLIDES_SHARE_EMAIL` environment variable to avoid this in the future._"
         else:
-            # Google Slides failed - try python-pptx fallback
-            logger.info("   Google Slides unavailable, falling back to PPTX generation")
-            pptx_result = _create_pptx_presentation(slides_content)
-
-            if pptx_result.get("file_path"):
-                # PPTX generation succeeded
-                filename = pptx_result.get("filename")
-                output_content = f"📥 **Presentation Ready for Download**\n\n"
-                output_content += f"**{slides_content.get('title', 'Presentation')}**\n"
-                output_content += f"_{slides_content.get('subtitle', '')}_\n\n"
-
-                # Download link placeholder - will be replaced by API with actual URL
-                output_content += f"[DOWNLOAD_PPTX:{filename}]\n\n"
-
-                output_content += "**Slides:**\n"
-                for i, slide in enumerate(slides_content.get("slides", []), 1):
-                    output_content += f"  {i}. {slide.get('title', 'Untitled')}\n"
-
-                # Add design tips
-                output_content += "\n---\n\n"
-                output_content += "**🎨 Design Enhancement Tips**\n\n"
-                output_content += "Your presentation has been generated with a clean template. "
-                output_content += "To polish it further:\n\n"
-                output_content += "1. **Apply a Theme**: Open in PowerPoint/Google Slides → Design → Themes\n"
-                output_content += "2. **Check Speaker Notes**: Each slide has design suggestions in the notes\n"
-                output_content += "3. **Add Visuals**: See per-slide recommendations below\n\n"
-
-                # Add per-slide design suggestions
-                design_tips = pptx_result.get("design_tips")
-                if design_tips:
-                    output_content += "**Per-Slide Recommendations:**\n\n"
-                    output_content += design_tips
-                    output_content += "\n"
-
-                output_content += "\n_Note: Google Slides API is not configured. "
-                output_content += "Presentation generated as downloadable PowerPoint file._"
-
-                # Store file path for API to serve
-                output_url = f"/api/download/{filename}"
-            else:
-                # Both methods failed - return text structure
-                logger.warning("   Could not create PPTX: %s", pptx_result.get("error"))
-                output_content = f"**{slides_content.get('title', 'Presentation')}**\n"
-                output_content += f"_{slides_content.get('subtitle', '')}_\n\n"
-
-                for i, slide in enumerate(slides_content.get("slides", []), 1):
-                    output_content += f"### Slide {i}: {slide.get('title', 'Untitled')}\n"
-                    for bullet in slide.get("bullets", []):
-                        output_content += f"• {bullet}\n"
-
-                    # Include design suggestions even in text fallback
-                    design_suggestions = slide.get("design_suggestions", {})
-                    if design_suggestions:
-                        output_content += "\n*Design suggestions:*\n"
-                        if design_suggestions.get("visual_type"):
-                            output_content += f"  - Visual: {design_suggestions.get('visual_type')}\n"
-                        if design_suggestions.get("layout_tip"):
-                            output_content += f"  - Layout: {design_suggestions.get('layout_tip')}\n"
-                    output_content += "\n"
-
-                output_content += f"\n_Note: Could not generate presentation file. {pptx_result.get('error', error)}_"
+            # Default: send slides JSON to frontend for Reveal.js rendering
+            logger.info("   Using browser presentation (Reveal.js)")
+            output_content = f"**{slides_content.get('title', 'Presentation')}**\n"
+            output_content += f"_{slides_content.get('subtitle', '')}_\n\n"
+            output_content += f"{len(slides_content.get('slides', []))} slides generated. "
+            output_content += "View the interactive presentation above."
     
     elif output_format == OutputFormat.DOCUMENT.value:
         # For now, generate as extended chat response
@@ -941,8 +881,14 @@ def generator_node(state: ResearchState) -> dict[str, Any]:
         output_content = "# Research Report\n\n" + output_content
     
     logger.info("   Generated %d characters of content", len(output_content))
-    
-    return {
+
+    result = {
         "output_content": output_content,
         "output_url": output_url,
     }
+
+    # Pass slides data to frontend for Reveal.js rendering
+    if output_format == OutputFormat.SLIDES.value and slides_content:
+        result["slides_content"] = slides_content
+
+    return result

@@ -169,6 +169,7 @@ class ResearchState(TypedDict, total=False):
     output_format: str                # OutputFormat value
     output_content: str               # Generated content
     output_url: str | None            # URL if slides/doc generated
+    slides_content: dict | None       # Typed slide deck JSON for frontend rendering
     final_response: str               # Response to user
 
     # -------------------------------------------------------------------------

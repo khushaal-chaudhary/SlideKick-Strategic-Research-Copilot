@@ -5,6 +5,7 @@ import { Hero } from "@/components/hero";
 import { QueryInput } from "@/components/query-input";
 import { LogViewer } from "@/components/log-viewer";
 import { ResponseViewer } from "@/components/response-viewer";
+import { PresentationViewer } from "@/components/presentation-viewer";
 import { TechStack } from "@/components/tech-stack";
 import { FutureIterations } from "@/components/future-iterations";
 import { Footer } from "@/components/footer";
@@ -20,6 +21,7 @@ export default function Home() {
     qualityScore,
     sources,
     error,
+    slidesContent,
     submitQuery,
     clearError,
   } = useResearch();
@@ -44,6 +46,16 @@ export default function Home() {
               </div>
             )}
 
+            {/* Presentation Viewer (full-width, above the grid) */}
+            {slidesContent && (
+              <div className="mt-8">
+                <PresentationViewer
+                  slides={slidesContent}
+                  qualityScore={qualityScore ?? undefined}
+                />
+              </div>
+            )}
+
             {/* Results Grid */}
             {(events.length > 0 || response) && (
               <motion.div
@@ -59,7 +71,7 @@ export default function Home() {
 
                 {/* Response */}
                 <div className="lg:order-1">
-                  {response && (
+                  {response && !slidesContent && (
                     <ResponseViewer
                       response={response}
                       qualityScore={qualityScore ?? undefined}

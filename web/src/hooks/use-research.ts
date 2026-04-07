@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { API_CONFIG } from "@/lib/constants";
 import type { LogEvent } from "@/components/log-viewer";
 import type { ErrorInfo, RateLimitInfo } from "@/components/error-banner";
+import type { SlidesPayload } from "@/components/presentation-viewer";
 
 export type LLMProvider = "ollama" | "groq";
 
@@ -14,6 +15,7 @@ interface ResearchState {
   qualityScore: number | null;
   sources: string[];
   error: ErrorInfo | null;
+  slidesContent: SlidesPayload | null;
 }
 
 export function useResearch() {
@@ -24,6 +26,7 @@ export function useResearch() {
     qualityScore: null,
     sources: [],
     error: null,
+    slidesContent: null,
   });
 
   const eventSourceRef = useRef<EventSource | null>(null);
@@ -63,6 +66,7 @@ export function useResearch() {
         qualityScore: null,
         sources: [],
         error: null,
+        slidesContent: null,
       });
       eventIdCounter.current = 0;
 
@@ -172,6 +176,7 @@ export function useResearch() {
                 response: data.response || null,
                 qualityScore: data.quality_score || null,
                 sources: data.sources_used || [],
+                slidesContent: (data.slides_content as SlidesPayload) || null,
               }));
               addEvent("complete", "Research complete");
               break;
@@ -225,6 +230,7 @@ export function useResearch() {
       qualityScore: null,
       sources: [],
       error: null,
+      slidesContent: null,
     });
     eventIdCounter.current = 0;
   }, []);

@@ -571,12 +571,16 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
                     if not sources_used:
                         sources_used.append("knowledge_graph")
 
+                    # Include slides data for frontend Reveal.js rendering
+                    slides_data = last_state.get("slides_content")
+
                     yield await _emit_final_response(
                         session_id,
                         final,
                         last_state.get("quality_score", state.get("quality_score", 0.8)),
                         last_state.get("iteration", state.get("iteration", 1)),
                         sources_used,
+                        slides_content=slides_data,
                     )
 
                     yield await _emit_node_event(
@@ -912,21 +916,23 @@ async def _emit_final_response(
     quality_score: float,
     iterations_used: int,
     sources_used: list[str],
+    slides_content: dict | None = None,
 ) -> dict:
-    """Emit the final response event."""
+    """Emit the final response event, optionally including slides data for frontend rendering."""
+    payload = {
+        "type": EventType.FINAL_RESPONSE.value,
+        "session_id": session_id,
+        "response": response,
+        "quality_score": quality_score,
+        "iterations_used": iterations_used,
+        "sources_used": sources_used,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+    if slides_content:
+        payload["slides_content"] = slides_content
     return {
         "event": "message",
-        "data": json.dumps(
-            {
-                "type": EventType.FINAL_RESPONSE.value,
-                "session_id": session_id,
-                "response": response,
-                "quality_score": quality_score,
-                "iterations_used": iterations_used,
-                "sources_used": sources_used,
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-        ),
+        "data": json.dumps(payload),
     }
 
 
