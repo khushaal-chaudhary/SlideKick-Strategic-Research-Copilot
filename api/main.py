@@ -947,6 +947,26 @@ async def get_session(session_id: str):
 
 
 # =============================================================================
+# Eval Results
+# =============================================================================
+
+# Repo layout locally (../evals) vs Docker image layout (./evals)
+EVAL_RESULTS_CANDIDATES = [
+    Path(__file__).parent.parent / "evals" / "results" / "latest.json",
+    Path(__file__).parent / "evals" / "results" / "latest.json",
+]
+
+
+@app.get("/api/evals/latest")
+async def get_latest_evals():
+    """Latest eval-harness results (see evals/run_evals.py)."""
+    for candidate in EVAL_RESULTS_CANDIDATES:
+        if candidate.exists():
+            return json.loads(candidate.read_text(encoding="utf-8"))
+    raise HTTPException(status_code=404, detail="No eval results available")
+
+
+# =============================================================================
 # Diagnostic Endpoints
 # =============================================================================
 

@@ -1,0 +1,4 @@
+# Eval-only dependencies (agent deps come from packages/agent)
+ragas>=0.4.0
+langchain-google-genai>=2.0.0
+python-dotenv>=1.0.0

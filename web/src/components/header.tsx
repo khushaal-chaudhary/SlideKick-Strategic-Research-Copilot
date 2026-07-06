@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { PERSONAL_INFO, SITE_CONFIG } from "@/lib/constants";
-import { Github, Linkedin, Mail, ExternalLink } from "lucide-react";
+import { Github, Linkedin, Mail, ExternalLink, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusIndicator } from "@/components/status-indicator";
 
@@ -23,6 +23,12 @@ export function Header() {
         </div>
 
         <nav className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/metrics" className="flex items-center gap-1.5">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Metrics</span>
+            </Link>
+          </Button>
           <Button variant="ghost" size="sm" asChild>
             <Link
               href={PERSONAL_INFO.website}

@@ -154,9 +154,12 @@ credentials/
 keys/
 *.json
 !package.json
+!package-lock.json
 !tsconfig.json
 !*.config.json
 !components.json
+!evals/results/*.json
+!web/src/data/*.json
 
 # Google Service Account (if accidentally added)
 *-service-account*.json

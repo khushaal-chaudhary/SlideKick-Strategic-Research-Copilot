@@ -47,6 +47,9 @@ COPY --chown=user:user packages/agent/src/copilot ./copilot
 # Copy the API
 COPY --chown=user:user api/ ./
 
+# Copy eval results (served at /api/evals/latest)
+COPY --chown=user:user evals/results ./evals/results
+
 # Copy startup script
 COPY --chown=user:user start.sh ./start.sh
 RUN chmod +x ./start.sh
