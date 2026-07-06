@@ -26,13 +26,11 @@ Custom Extensions (prefixed with 'x:'):
 
 References:
 - https://schema.org/Organization
-- https://schema.org/MonetaryAmount  
+- https://schema.org/MonetaryAmount
 - https://www.w3.org/community/fibo/ (FIBO schema.org extension)
 """
 
 from enum import Enum
-from typing import Any
-
 
 # =============================================================================
 # Node Types (Schema.org Aligned)
@@ -41,11 +39,11 @@ from typing import Any
 class NodeType(str, Enum):
     """
     Knowledge graph node types aligned with schema.org.
-    
+
     Uses schema.org types where available, with custom extensions
     prefixed with 'x:' for domain-specific concepts.
     """
-    
+
     # --- Schema.org Core Types ---
     ORGANIZATION = "Organization"      # schema.org/Organization (corporations, companies)
     PERSON = "Person"                  # schema.org/Person (executives, founders)
@@ -53,11 +51,11 @@ class NodeType(str, Enum):
     EVENT = "Event"                    # schema.org/Event (announcements, launches)
     PLACE = "Place"                    # schema.org/Place (locations, regions)
     CREATIVE_WORK = "CreativeWork"     # schema.org/CreativeWork (reports, documents)
-    
+
     # --- Schema.org Financial Types (from FIBO extension) ---
     MONETARY_AMOUNT = "MonetaryAmount"          # schema.org/MonetaryAmount
     FINANCIAL_PRODUCT = "FinancialProduct"      # schema.org/FinancialProduct
-    
+
     # --- Custom Extensions (Domain-Specific) ---
     STRATEGY = "x:Strategy"            # Strategic initiatives, plans
     RISK = "x:Risk"                    # Business risks, threats
@@ -65,7 +63,7 @@ class NodeType(str, Enum):
     METRIC = "x:Metric"                # Non-monetary metrics (users, growth %)
     INITIATIVE = "x:Initiative"        # Programs, campaigns
     SECTOR = "x:Sector"                # Industry sectors, markets
-    
+
     # --- Fallback ---
     THING = "Thing"                    # schema.org/Thing (generic)
 
@@ -77,11 +75,11 @@ class NodeType(str, Enum):
 class RelationType(str, Enum):
     """
     Knowledge graph relationship types.
-    
+
     Uses schema.org properties where available, with domain-specific
     extensions for strategic analysis.
     """
-    
+
     # --- Schema.org Properties ---
     MEMBER_OF = "memberOf"             # Person → Organization
     FOUNDER = "founder"                # Organization → Person
@@ -94,12 +92,12 @@ class RelationType(str, Enum):
     LOCATION = "location"              # Thing → Place
     ABOUT = "about"                    # CreativeWork → Thing
     MENTIONS = "mentions"              # CreativeWork → Thing
-    
+
     # --- Financial Relationships ---
     HAS_REVENUE = "hasRevenue"         # Organization → MonetaryAmount
     HAS_INVESTMENT = "hasInvestment"   # Organization → MonetaryAmount
     FUNDS = "funds"                    # Organization → Initiative
-    
+
     # --- Strategic Relationships ---
     LAUNCHED = "launched"              # Organization → Product/Initiative
     ANNOUNCED = "announced"            # Organization → Event/Strategy
@@ -107,19 +105,19 @@ class RelationType(str, Enum):
     COMPETES_WITH = "competesWith"     # Organization → Organization
     PARTNERS_WITH = "partnersWith"     # Organization → Organization
     ACQUIRED = "acquired"              # Organization → Organization
-    
+
     # --- Risk/Metric Relationships ---
     FACES_RISK = "facesRisk"           # Organization → Risk
     MITIGATES = "mitigates"            # Strategy → Risk
     MEASURED_BY = "measuredBy"         # Strategy/Product → Metric
     INCREASED = "increased"            # Thing → Metric (with temporal context)
     DECREASED = "decreased"            # Thing → Metric (with temporal context)
-    
+
     # --- Technology Relationships ---
     USES = "uses"                      # Organization/Product → Technology
     BUILT_ON = "builtOn"               # Product → Technology
     ENABLES = "enables"                # Technology → Strategy/Product
-    
+
     # --- Generic ---
     RELATED_TO = "relatedTo"           # Thing → Thing (fallback)
 
@@ -143,7 +141,7 @@ SCHEMA_DEFINITIONS = {
         },
         "examples": ["Microsoft", "OpenAI", "Anthropic"],
     },
-    
+
     NodeType.PERSON: {
         "schema_url": "https://schema.org/Person",
         "description": "A person, such as an executive or founder",
@@ -154,7 +152,7 @@ SCHEMA_DEFINITIONS = {
         },
         "examples": ["Satya Nadella", "Sam Altman"],
     },
-    
+
     NodeType.PRODUCT: {
         "schema_url": "https://schema.org/Product",
         "description": "A product or service",
@@ -166,7 +164,7 @@ SCHEMA_DEFINITIONS = {
         },
         "examples": ["Azure", "Microsoft 365", "Copilot", "Xbox"],
     },
-    
+
     NodeType.MONETARY_AMOUNT: {
         "schema_url": "https://schema.org/MonetaryAmount",
         "description": "A monetary value with currency",
@@ -178,7 +176,7 @@ SCHEMA_DEFINITIONS = {
         },
         "examples": ["$211 billion revenue", "$35 billion investment"],
     },
-    
+
     NodeType.STRATEGY: {
         "schema_url": None,  # Custom extension
         "description": "A strategic initiative or business strategy",
@@ -190,7 +188,7 @@ SCHEMA_DEFINITIONS = {
         },
         "examples": ["AI-First Strategy", "Cloud Expansion", "Sustainability Initiative"],
     },
-    
+
     NodeType.RISK: {
         "schema_url": None,  # Custom extension
         "description": "A business risk or threat",
@@ -202,7 +200,7 @@ SCHEMA_DEFINITIONS = {
         },
         "examples": ["Cybersecurity Threats", "Regulatory Compliance", "Market Competition"],
     },
-    
+
     NodeType.TECHNOLOGY: {
         "schema_url": None,  # Custom extension
         "description": "A technology, platform, or technical capability",
@@ -213,7 +211,7 @@ SCHEMA_DEFINITIONS = {
         },
         "examples": ["GPT-4", "Azure AI", "Kubernetes", "Quantum Computing"],
     },
-    
+
     NodeType.METRIC: {
         "schema_url": None,  # Custom extension
         "description": "A non-monetary business metric",
@@ -226,7 +224,7 @@ SCHEMA_DEFINITIONS = {
         },
         "examples": ["300 million Teams users", "40% YoY growth", "500+ enterprise customers"],
     },
-    
+
     NodeType.EVENT: {
         "schema_url": "https://schema.org/Event",
         "description": "An announcement, launch, or business event",
@@ -248,20 +246,20 @@ SCHEMA_DEFINITIONS = {
 def get_extraction_prompt() -> str:
     """
     Generate a prompt for LLM-based entity/relationship extraction.
-    
+
     This prompt is designed to:
     1. Use schema.org terminology that LLMs understand well
     2. Provide clear examples
     3. Ensure consistent output format
     """
-    
+
     node_types = "\n".join([
         f"  - {t.value}: {SCHEMA_DEFINITIONS.get(t, {}).get('description', 'No description')}"
         for t in NodeType
     ])
-    
+
     rel_types = ", ".join([r.value for r in RelationType])
-    
+
     return f"""You are extracting structured knowledge from text using schema.org-aligned types.
 
 ## Node Types (use these exactly):
@@ -335,20 +333,20 @@ Now extract from the following text:
 def get_neo4j_schema() -> str:
     """
     Generate Cypher statements to create schema constraints in Neo4j.
-    
+
     This ensures:
     1. Unique node IDs
     2. Proper indexing for fast queries
     """
-    
+
     constraints = []
-    
+
     for node_type in NodeType:
         type_name = node_type.value.replace("x:", "")  # Remove extension prefix for Neo4j
         constraints.append(
             f"CREATE CONSTRAINT IF NOT EXISTS FOR (n:{type_name}) REQUIRE n.id IS UNIQUE;"
         )
-    
+
     # Add indexes for common query patterns
     indexes = [
         "CREATE INDEX IF NOT EXISTS FOR (n:Organization) ON (n.name);",
@@ -356,7 +354,7 @@ def get_neo4j_schema() -> str:
         "CREATE INDEX IF NOT EXISTS FOR (n:Product) ON (n.name);",
         "CREATE INDEX IF NOT EXISTS FOR (n:MonetaryAmount) ON (n.period);",
     ]
-    
+
     return "\n".join(constraints + indexes)
 
 
@@ -373,7 +371,7 @@ MIGRATION_MAP = {
     "FinancialMetric": NodeType.MONETARY_AMOUNT,  # or x:Metric for non-monetary
     "Risk": NodeType.RISK,
     "Technology": NodeType.TECHNOLOGY,
-    
+
     # Your current relationships → Schema.org aligned
     "LAUNCHED": RelationType.LAUNCHED,
     "INCREASED": RelationType.INCREASED,

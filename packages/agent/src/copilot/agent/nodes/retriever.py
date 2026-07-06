@@ -15,9 +15,9 @@ import logging
 from typing import Any
 
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from copilot.agent.state import ResearchState, RefinementType, RetrievalStrategy
+from copilot.agent.state import RefinementType, ResearchState, RetrievalStrategy
 from copilot.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -57,19 +57,19 @@ def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
                 cypher = """
                     MATCH (n)-[r]-(m)
                     WHERE toLower(n.id) CONTAINS toLower($entity)
-                    RETURN n.id AS source, type(r) AS relationship, 
+                    RETURN n.id AS source, type(r) AS relationship,
                            m.id AS target, labels(n) AS source_type, labels(m) AS target_type
                     LIMIT 20
                 """
                 entity_results = _run_cypher(cypher, {"entity": entity})
                 results.extend(entity_results)
-        
+
         # Strategy 2: General search with key terms from query
         cypher = """
             MATCH (n)
             WHERE toLower(n.id) CONTAINS toLower($search)
             OPTIONAL MATCH (n)-[r]-(m)
-            RETURN n.id AS entity, labels(n) AS types, 
+            RETURN n.id AS entity, labels(n) AS types,
                    collect(DISTINCT {rel: type(r), target: m.id})[..5] AS relationships
             LIMIT 30
         """
@@ -78,7 +78,7 @@ def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
             if len(term) > 3:
                 query_results = _run_cypher(cypher, {"search": term})
                 results.extend(query_results)
-        
+
         # Deduplicate
         seen = set()
         unique_results = []
@@ -87,9 +87,9 @@ def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
             if key and key not in seen:
                 seen.add(key)
                 unique_results.append(r)
-        
+
         confidence = min(1.0, len(unique_results) / 10)
-        
+
         return {
             "source": "knowledge_graph",
             "query": query,
@@ -97,7 +97,7 @@ def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
             "result_count": len(unique_results),
             "confidence": confidence,
         }
-        
+
     except Exception as e:
         logger.error("Graph query failed: %s", e)
         return {
@@ -113,23 +113,23 @@ def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
 def _query_web_tavily(query: str, max_results: int = 5) -> dict[str, Any]:
     """
     Query the web using Tavily API.
-    
+
     Tavily provides AI-powered search with:
     - AI-generated answer summarizing results
     - Full content extraction from pages (not just snippets!)
     - Relevance scoring
-    
+
     Args:
         query: Search query (critic may have optimized this)
         max_results: Maximum results to return
-        
+
     Returns:
         Dict with source, ai_answer, results (with full content), count, confidence
     """
     logger.info("   🌐 Executing Tavily web search: '%s'", query[:60])
-    
+
     api_key = settings.tavily_api_key_str
-    
+
     if not api_key:
         logger.warning("   ⚠️ TAVILY_API_KEY not set, skipping web search")
         return {
@@ -141,7 +141,7 @@ def _query_web_tavily(query: str, max_results: int = 5) -> dict[str, Any]:
             "confidence": 0.0,
             "error": "TAVILY_API_KEY not configured",
         }
-    
+
     try:
         from tavily import TavilyClient
 
@@ -163,10 +163,10 @@ def _query_web_tavily(query: str, max_results: int = 5) -> dict[str, Any]:
             )
 
         response = _tavily_search()
-        
+
         # Extract AI-generated answer
         ai_answer = response.get("answer", "")
-        
+
         # Format results with FULL content (not snippets!)
         results = []
         for r in response.get("results", []):
@@ -177,16 +177,16 @@ def _query_web_tavily(query: str, max_results: int = 5) -> dict[str, Any]:
                 "score": r.get("score", 0.0),     # Relevance score
                 "source_type": "tavily",
             })
-        
+
         # Sort by relevance score
         results.sort(key=lambda x: x.get("score", 0), reverse=True)
-        
+
         confidence = min(1.0, len(results) / 3)  # 3+ good results = high confidence
-        
+
         logger.info("   🌐 Tavily found %d results", len(results))
         if ai_answer:
             logger.info("   🤖 AI Answer: %s...", ai_answer[:100])
-        
+
         return {
             "source": "web_search",
             "query": query,
@@ -195,7 +195,7 @@ def _query_web_tavily(query: str, max_results: int = 5) -> dict[str, Any]:
             "result_count": len(results),
             "confidence": confidence,
         }
-        
+
     except ImportError:
         logger.warning("   ⚠️ tavily-python not installed. Run: pip install tavily-python")
         return {
@@ -223,46 +223,47 @@ def _query_web_tavily(query: str, max_results: int = 5) -> dict[str, Any]:
 def _query_vector(query: str, top_k: int = 5) -> dict[str, Any]:
     """
     Query vector embeddings for semantic similarity search.
-    
+
     Uses Ollama embeddings (nomic-embed-text) + Neo4j vector index
     to find semantically similar document chunks.
-    
+
     Args:
         query: Search query
         top_k: Number of results to return
-        
+
     Returns:
         Dict with source, results (text passages), count, confidence
     """
     logger.info("   🔮 Executing vector search: '%s'", query[:60])
-    
+
     try:
         from langchain_ollama import OllamaEmbeddings
+
         from copilot.graph.connection import graph_connection
-        
+
         # Initialize embeddings (nomic-embed-text = 768 dimensions)
         embeddings = OllamaEmbeddings(model="nomic-embed-text")
-        
+
         # Generate query embedding
         query_embedding = embeddings.embed_query(query)
-        
+
         # Query Neo4j vector index
         cypher = """
             CALL db.index.vector.queryNodes('document_embeddings', $top_k, $embedding)
             YIELD node, score
-            RETURN 
+            RETURN
                 node.id AS chunk_id,
                 node.text AS text,
                 node.source AS source,
                 score
             ORDER BY score DESC
         """
-        
+
         results = graph_connection.query(cypher, params={
             "embedding": query_embedding,
             "top_k": top_k,
         })
-        
+
         # Format results
         formatted = []
         for r in results:
@@ -273,14 +274,14 @@ def _query_vector(query: str, top_k: int = 5) -> dict[str, Any]:
                 "score": r.get("score", 0.0),
                 "source_type": "vector",
             })
-        
+
         # Confidence based on top score
         top_score = formatted[0]["score"] if formatted else 0.0
         confidence = min(1.0, top_score)  # Score is already 0-1 for cosine
-        
-        logger.info("   🔮 Vector search found %d results (top score: %.3f)", 
+
+        logger.info("   🔮 Vector search found %d results (top score: %.3f)",
                    len(formatted), top_score)
-        
+
         return {
             "source": "vector_search",
             "query": query,
@@ -288,7 +289,7 @@ def _query_vector(query: str, top_k: int = 5) -> dict[str, Any]:
             "result_count": len(formatted),
             "confidence": confidence,
         }
-        
+
     except ImportError as e:
         logger.warning("   ⚠️ langchain-ollama not installed: %s", e)
         return {
@@ -532,33 +533,33 @@ def retriever_node(state: ResearchState) -> dict[str, Any]:
 
     # Track AI answers from Tavily
     web_ai_answer = state.get("web_ai_answer", "")
-    
+
     # ==========================================================================
     # Execute based on refinement_type
     # ==========================================================================
-    
+
     if refinement_type == RefinementType.WEB_SEARCH.value:
         # Critic requested web search - use their optimized query
         search_query = refinement_focus if refinement_focus else query
         logger.info("   📡 Critic requested WEB_SEARCH")
-        
+
         result = _query_web_tavily(search_query)
         web_results.extend(result["results"])
         all_retrievals.append(result)
-        
+
         # Capture the AI-generated answer
         if result.get("ai_answer"):
             web_ai_answer = result["ai_answer"]
-        
+
     elif refinement_type == RefinementType.VECTOR_SEARCH.value:
         # Critic requested vector search
         search_query = refinement_focus if refinement_focus else query
         logger.info("   📡 Critic requested VECTOR_SEARCH")
-        
+
         result = _query_vector(search_query)
         vector_results.extend(result["results"])
         all_retrievals.append(result)
-        
+
     elif refinement_type == RefinementType.MORE_GRAPH.value:
         # Critic wants deeper graph exploration
         search_query = refinement_focus if refinement_focus else query
@@ -613,7 +614,7 @@ def retriever_node(state: ResearchState) -> dict[str, Any]:
             result = _query_graph(query, entities)
             graph_results.extend(result["results"])
             all_retrievals.append(result)
-    
+
     # Summary
     total = len(graph_results) + len(vector_results) + len(web_results) + len(financial_results)
     logger.info(

@@ -10,7 +10,6 @@ This node:
 
 import json
 import logging
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -179,7 +178,7 @@ def _format_insights_for_generation(insights: list[dict]) -> str:
     """Format insights for generation prompts."""
     if not insights:
         return "No specific insights were extracted."
-    
+
     formatted = []
     for insight in insights:
         formatted.append(
@@ -194,7 +193,7 @@ def _format_insights_for_generation(insights: list[dict]) -> str:
 def _generate_chat_response(state: ResearchState) -> str:
     """Generate a conversational response."""
     llm = get_llm(temperature=0.3)
-    
+
     prompt = CHAT_RESPONSE_PROMPT.format(
         query=state["original_query"],
         insights=_format_insights_for_generation(state.get("insights", [])),
@@ -202,7 +201,7 @@ def _generate_chat_response(state: ResearchState) -> str:
         quality_score=state.get("quality_score", 0.5),
         entity_count=len(state.get("entities_found", [])),
     )
-    
+
     response = llm.invoke(prompt)
     return response.content
 
@@ -210,13 +209,13 @@ def _generate_chat_response(state: ResearchState) -> str:
 def _generate_bullet_summary(state: ResearchState) -> str:
     """Generate a structured bullet summary."""
     llm = get_llm(temperature=0.3)
-    
+
     prompt = BULLET_SUMMARY_PROMPT.format(
         query=state["original_query"],
         insights=_format_insights_for_generation(state.get("insights", [])),
         synthesis=state.get("synthesis", ""),
     )
-    
+
     response = llm.invoke(prompt)
     return response.content
 
@@ -412,7 +411,6 @@ def _get_service_account_credentials():
     """
     import json
     import os
-    import tempfile
 
     from google.oauth2 import service_account
 
@@ -652,9 +650,9 @@ def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> d
 
     try:
         from pptx import Presentation
-        from pptx.util import Inches, Pt
         from pptx.dml.color import RGBColor
         from pptx.enum.text import PP_ALIGN
+        from pptx.util import Inches, Pt
 
         # Create presentation
         prs = Presentation()
@@ -664,7 +662,7 @@ def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> d
         # Color scheme
         TITLE_COLOR = RGBColor(26, 54, 93)  # Dark blue #1a365d
         BODY_COLOR = RGBColor(45, 55, 72)   # Dark gray #2d3748
-        ACCENT_COLOR = RGBColor(49, 130, 206)  # Blue accent #3182ce
+        RGBColor(49, 130, 206)  # Blue accent #3182ce
 
         # Collect design suggestions for output
         all_design_tips = []
@@ -816,19 +814,19 @@ def _create_pptx_presentation(slides_content: dict, session_id: str = None) -> d
 def generator_node(state: ResearchState) -> dict[str, Any]:
     """
     Generate the final deliverable.
-    
+
     This node:
     1. Determines the output format
     2. Generates content appropriate for that format
     3. For slides, attempts to create via MCP
     4. Returns the generated content
-    
+
     Returns:
         State updates with generated content
     """
     output_format = state.get("output_format", OutputFormat.CHAT.value)
-    query_type = state.get("query_type", QueryType.UNKNOWN.value)
-    
+    state.get("query_type", QueryType.UNKNOWN.value)
+
     logger.info("🎨 Generator: Creating %s output...", output_format)
 
     output_content = ""
@@ -837,10 +835,10 @@ def generator_node(state: ResearchState) -> dict[str, Any]:
 
     if output_format == OutputFormat.CHAT.value:
         output_content = _generate_chat_response(state)
-        
+
     elif output_format == OutputFormat.BULLET_SUMMARY.value:
         output_content = _generate_bullet_summary(state)
-        
+
     elif output_format == OutputFormat.SLIDES.value:
         slides_content = _generate_slides_content(state)
 
@@ -874,12 +872,12 @@ def generator_node(state: ResearchState) -> dict[str, Any]:
             output_content += f"_{slides_content.get('subtitle', '')}_\n\n"
             output_content += f"{len(slides_content.get('slides', []))} slides generated. "
             output_content += "View the interactive presentation above."
-    
+
     elif output_format == OutputFormat.DOCUMENT.value:
         # For now, generate as extended chat response
         output_content = _generate_chat_response(state)
         output_content = "# Research Report\n\n" + output_content
-    
+
     logger.info("   Generated %d characters of content", len(output_content))
 
     result = {

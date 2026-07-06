@@ -132,7 +132,7 @@ def _format_insights(insights: list[dict]) -> str:
     """Format insights for the critic."""
     if not insights:
         return "No insights generated."
-    
+
     formatted = []
     for i, insight in enumerate(insights, 1):
         formatted.append(
@@ -146,7 +146,7 @@ def _format_graph_results(results: list[dict]) -> str:
     """Format graph results for the critic."""
     if not results:
         return "No results from knowledge graph."
-    
+
     formatted = []
     for r in results[:10]:  # Limit to avoid token overflow
         if "entity" in r:
@@ -160,7 +160,7 @@ def _format_web_results(results: list[dict]) -> str:
     """Format web results for the critic."""
     if not results:
         return "No web search results."
-    
+
     formatted = []
     for r in results[:5]:  # Limit to top 5
         title = r.get("title", "")[:60]
@@ -231,7 +231,7 @@ def _parse_critique_response(response: str) -> dict[str, Any]:
         if cleaned.startswith("json"):
             cleaned = cleaned[4:]
     cleaned = cleaned.strip()
-    
+
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
@@ -250,16 +250,16 @@ def _parse_critique_response(response: str) -> dict[str, Any]:
 def critic_node(state: ResearchState) -> dict[str, Any]:
     """
     Critically evaluate the analysis quality AND decide next tool.
-    
+
     This node:
     1. Evaluates completeness, specificity, relevance, depth, evidence
     2. Calculates an overall quality score
     3. Decides which tool to use next (web_search, more_graph, none)
     4. Provides optimized query for the chosen tool
-    
+
     The decision to loop back vs proceed is made in the workflow routing,
     based on the `needs_refinement` flag this node sets.
-    
+
     Returns:
         State updates with critique, refinement decision, and tool selection
     """
@@ -271,20 +271,20 @@ def critic_node(state: ResearchState) -> dict[str, Any]:
     iteration = state.get("iteration", 1)
     max_iterations = state.get("max_iterations", settings.max_iterations)
     previous_focus = state.get("refinement_focus", "")
-    
+
     # Get retrieval results for context
     graph_results = state.get("graph_results", [])
     vector_results = state.get("vector_results", [])
     web_results = state.get("web_results", [])
     web_ai_answer = state.get("web_ai_answer", "")
     financial_results = state.get("financial_results", [])
-    
+
     logger.info("🎯 Critic: Evaluating analysis quality (iteration %d/%d)...",
                iteration, max_iterations)
     logger.info("   Data available: graph=%d, vector=%d, web=%d, financial=%d, ai_answer=%s",
                len(graph_results), len(vector_results), len(web_results),
                len(financial_results), "yes" if web_ai_answer else "no")
-    
+
     # Quick check: if we've hit max iterations, don't bother evaluating deeply
     if iteration >= max_iterations:
         logger.warning("   Max iterations reached, proceeding regardless of quality.")
@@ -300,9 +300,9 @@ def critic_node(state: ResearchState) -> dict[str, Any]:
             "refinement_type": RefinementType.NONE.value,
             "refinement_focus": "",
         }
-    
+
     llm = get_llm(temperature=0)  # Deterministic for evaluation
-    
+
     # Build the critique prompt with full context
     prompt = CRITIC_PROMPT.format(
         query=query,
@@ -325,17 +325,17 @@ def critic_node(state: ResearchState) -> dict[str, Any]:
         max_iterations=max_iterations,
         previous_focus=previous_focus or "None",
     )
-    
+
     response = llm.invoke(prompt)
     critique = _parse_critique_response(response.content)
-    
+
     # Extract key decisions
     quality_score = critique.get("quality_score", 0.5)
     is_sufficient = critique.get("is_sufficient", False)
     gaps = critique.get("gaps_identified", [])
     refinement_tool = critique.get("refinement_tool", "none")
     refinement_query = critique.get("refinement_query", "")
-    
+
     # Map tool string to RefinementType enum
     tool_mapping = {
         "web_search": RefinementType.WEB_SEARCH.value,
@@ -345,7 +345,7 @@ def critic_node(state: ResearchState) -> dict[str, Any]:
         "none": RefinementType.NONE.value,
     }
     refinement_type = tool_mapping.get(refinement_tool, RefinementType.NONE.value)
-    
+
     # Determine quality threshold based on query type
     threshold = settings.quality_threshold
     if query_type == QueryType.STRATEGIC.value:
@@ -354,25 +354,25 @@ def critic_node(state: ResearchState) -> dict[str, Any]:
         threshold = min(threshold, 0.7)  # Factual queries can proceed sooner
     elif query_type == QueryType.FINANCIAL.value:
         threshold = max(threshold, 0.75)  # Financial queries need accurate data
-    
+
     # Make the refinement decision
     needs_refinement = (
-        not is_sufficient 
-        #and quality_score < threshold 
+        not is_sufficient
+        #and quality_score < threshold
         and iteration < max_iterations
         and refinement_type != RefinementType.NONE.value  # Critic chose a tool
     )
-    
+
     logger.info("   Quality score: %.2f (threshold: %.2f)", quality_score, threshold)
     logger.info("   Sufficient: %s, Needs refinement: %s", is_sufficient, needs_refinement)
-    
+
     if gaps:
         logger.info("   Gaps: %s", ", ".join(gaps[:3]))
-    
+
     if needs_refinement:
         logger.info("   → Tool: %s", refinement_type)
         logger.info("   → Query: %s", refinement_query[:50])
-    
+
     # Build return state
     result = {
         "critique": critique,
@@ -381,10 +381,10 @@ def critic_node(state: ResearchState) -> dict[str, Any]:
         "refinement_type": refinement_type if needs_refinement else RefinementType.NONE.value,
         "refinement_focus": refinement_query if needs_refinement else "",
     }
-    
+
     # CRITICAL: Increment iteration counter when looping back
     if needs_refinement:
         result["iteration"] = iteration + 1
         logger.info("   → Incrementing iteration to %d", iteration + 1)
-    
+
     return result

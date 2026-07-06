@@ -13,7 +13,9 @@ Fallback:
 
 import logging
 from typing import Literal
+
 from langchain_core.language_models.chat_models import BaseChatModel
+
 from copilot.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -128,12 +130,12 @@ def _get_gemini_llm(model: str, temperature: float) -> BaseChatModel:
     """Create a Google Gemini LLM."""
     if not settings.google_api_key:
         raise ValueError("GOOGLE_API_KEY is required when using Gemini.")
-    
+
     import google.generativeai as genai
     from langchain_google_genai import ChatGoogleGenerativeAI
-    
+
     genai.configure(api_key=settings.google_api_key_str)
-    
+
     return ChatGoogleGenerativeAI(
         model=model,
         temperature=temperature,
@@ -145,7 +147,7 @@ def _get_gemini_llm(model: str, temperature: float) -> BaseChatModel:
 def _get_ollama_llm(model: str, temperature: float) -> BaseChatModel:
     """Create an Ollama LLM (local)."""
     from langchain_ollama import ChatOllama
-    
+
     return ChatOllama(
         model=model,
         temperature=temperature,
@@ -157,9 +159,9 @@ def _get_openai_llm(model: str, temperature: float) -> BaseChatModel:
     """Create an OpenAI LLM."""
     if not settings.openai_api_key:
         raise ValueError("OPENAI_API_KEY is required when using OpenAI.")
-    
+
     from langchain_openai import ChatOpenAI
-    
+
     return ChatOpenAI(
         model=model,
         temperature=temperature,

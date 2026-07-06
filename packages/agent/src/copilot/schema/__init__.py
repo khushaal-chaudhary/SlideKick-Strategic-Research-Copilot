@@ -6,10 +6,10 @@ and FIBO financial extensions.
 """
 
 from copilot.schema.ontology import (
+    MIGRATION_MAP,
+    SCHEMA_DEFINITIONS,
     NodeType,
     RelationType,
-    SCHEMA_DEFINITIONS,
-    MIGRATION_MAP,
     get_extraction_prompt,
     get_neo4j_schema,
     migrate_node_type,

@@ -13,39 +13,29 @@ import logging
 import os
 import re
 import sys
+import tempfile
 import threading
+import time
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime
-from queue import Queue, Empty
-
-import tempfile
-import time
 from pathlib import Path
+from queue import Empty, Queue
 
+from config import get_settings
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from sse_starlette.sse import EventSourceResponse
-
-from config import get_settings
 from schemas import (
-    APIInfoResponse,
     AgentNode,
-    DecisionEvent,
-    ErrorEvent,
+    APIInfoResponse,
     EventType,
-    FinalResponseEvent,
     HealthResponse,
-    InsightEvent,
-    NodeEvent,
-    OutputEvent,
-    ProgressEvent,
     QueryRequest,
     QueryResponse,
-    RetrievalEvent,
     SessionState,
 )
+from sse_starlette.sse import EventSourceResponse
 
 # Add agent package to path if running in Docker/HF Spaces
 agent_path = os.path.join(os.path.dirname(__file__), "..", "packages", "agent", "src")
@@ -54,8 +44,8 @@ if os.path.exists(agent_path):
 
 # Try to import the real agent
 try:
-    from copilot.agent import create_copilot, ResearchState
-    from copilot.llm import activate_fallback, set_provider_override
+    from copilot.agent import create_copilot
+    from copilot.llm import set_provider_override
     AGENT_AVAILABLE = True
 except ImportError as e:
     logging.warning(f"Agent not available, using demo mode: {e}")
@@ -130,8 +120,6 @@ def _parse_rate_limit_error(error_message: str) -> dict | None:
         "retry_after": None,
         "retry_after_friendly": "a few moments",
     }
-
-    error_str_original = str(error_message)
 
     # Extract limit type (TPM, RPM, RPD)
     if "tokens per minute" in error_str or "tpm" in error_str:
@@ -995,7 +983,7 @@ async def debug_neo4j():
         # Get node labels
         try:
             labels = graph_connection.query("CALL db.labels()")
-            result["node_labels"] = [l["label"] for l in labels]
+            result["node_labels"] = [row["label"] for row in labels]
         except Exception as e:
             result["labels_error"] = str(e)
 

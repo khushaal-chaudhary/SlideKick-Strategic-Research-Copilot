@@ -18,24 +18,24 @@ logger = logging.getLogger(__name__)
 def responder_node(state: ResearchState) -> dict[str, Any]:
     """
     Format and deliver the final response.
-    
+
     This node:
     1. Takes the generated content
     2. Adds any necessary context (quality caveats, etc.)
     3. Formats for the conversation
-    
+
     Returns:
         State updates with final response
     """
     output_content = state.get("output_content", "")
     output_url = state.get("output_url")
-    output_format = state.get("output_format", OutputFormat.CHAT.value)
+    state.get("output_format", OutputFormat.CHAT.value)
     quality_score = state.get("quality_score", 0.5)
     iteration = state.get("iteration", 1)
     error = state.get("error")
-    
+
     logger.info("💬 Responder: Formatting final response...")
-    
+
     # Handle errors
     if error:
         final_response = (
@@ -47,7 +47,7 @@ def responder_node(state: ResearchState) -> dict[str, Any]:
             "final_response": final_response,
             "messages": [AIMessage(content=final_response)],
         }
-    
+
     # Handle empty content
     if not output_content:
         final_response = (
@@ -62,14 +62,14 @@ def responder_node(state: ResearchState) -> dict[str, Any]:
             "final_response": final_response,
             "messages": [AIMessage(content=final_response)],
         }
-    
+
     # Build the response
     final_response = output_content
-    
+
     # Add URL if we have one
     if output_url:
         final_response += f"\n\n📊 **View presentation:** {output_url}"
-    
+
     # Add quality context for lower-confidence answers
     if quality_score < 0.6:
         final_response += (
@@ -83,10 +83,10 @@ def responder_node(state: ResearchState) -> dict[str, Any]:
             f"\n\n---\n"
             f"_This response was refined over {iteration} iterations to improve accuracy._"
         )
-    
-    logger.info("   Response ready (%d chars, quality: %.0f%%)", 
+
+    logger.info("   Response ready (%d chars, quality: %.0f%%)",
                len(final_response), quality_score * 100)
-    
+
     return {
         "final_response": final_response,
         "messages": [AIMessage(content=final_response)],

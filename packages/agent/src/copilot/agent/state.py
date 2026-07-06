@@ -43,7 +43,7 @@ class RetrievalStrategy(str, Enum):
 
 class OutputFormat(str, Enum):
     """Desired output format."""
-    
+
     CHAT = "chat"                     # Conversational response
     SLIDES = "slides"                 # Google Slides presentation
     DOCUMENT = "document"             # Long-form document
@@ -64,7 +64,7 @@ class RefinementType(str, Enum):
 @dataclass
 class ResearchStep:
     """A single step in the research plan."""
-    
+
     description: str
     query: str                        # The specific query for this step
     status: str = "pending"           # pending, completed, failed
@@ -74,7 +74,7 @@ class ResearchStep:
 @dataclass
 class RetrievalResult:
     """Results from a retrieval operation."""
-    
+
     source: str                       # "graph", "vector", "web"
     query: str                        # The query that was executed
     results: list[dict[str, Any]]     # Raw results
@@ -82,10 +82,10 @@ class RetrievalResult:
     confidence: float = 0.0           # How confident are we in these results?
 
 
-@dataclass 
+@dataclass
 class AnalysisInsight:
     """An insight extracted during analysis."""
-    
+
     category: str                     # e.g., "competitive_gap", "strategic_theme"
     title: str
     description: str
@@ -96,7 +96,7 @@ class AnalysisInsight:
 @dataclass
 class CritiqueResult:
     """Results from the critic's evaluation."""
-    
+
     quality_score: float              # 0.0 to 1.0
     is_sufficient: bool               # Does it meet the threshold?
     gaps_identified: list[str]        # What's missing?
@@ -111,16 +111,16 @@ class CritiqueResult:
 class ResearchState(TypedDict, total=False):
     """
     The state that flows through the research agent.
-    
+
     This TypedDict is used by LangGraph to manage state across nodes.
     All fields are optional (total=False) to allow partial updates.
     """
-    
+
     # -------------------------------------------------------------------------
     # Conversation
     # -------------------------------------------------------------------------
     messages: Annotated[list[BaseMessage], add_messages]
-    
+
     # -------------------------------------------------------------------------
     # Query Understanding
     # -------------------------------------------------------------------------
@@ -128,14 +128,14 @@ class ResearchState(TypedDict, total=False):
     query_type: str                   # QueryType value
     entities_of_interest: list[str]   # Extracted entities to focus on (full names for graph)
     stock_symbols: list[str]          # Stock ticker symbols for financial API (MSFT, AAPL)
-    
+
     # -------------------------------------------------------------------------
     # Planning
     # -------------------------------------------------------------------------
     research_plan: list[dict]         # List of ResearchStep as dicts
     current_step_index: int           # Which step are we on?
     retrieval_strategy: str           # RetrievalStrategy value
-    
+
     # -------------------------------------------------------------------------
     # Retrieval Results
     # -------------------------------------------------------------------------
@@ -145,7 +145,7 @@ class ResearchState(TypedDict, total=False):
     web_ai_answer: str                # AI-generated summary from Tavily
     financial_results: list[dict]     # Results from Alpha Vantage financial API
     all_retrievals: list[dict]        # All RetrievalResult as dicts
-    
+
     # -------------------------------------------------------------------------
     # Analysis
     # -------------------------------------------------------------------------
@@ -153,7 +153,7 @@ class ResearchState(TypedDict, total=False):
     synthesis: str                    # Synthesized analysis text
     entities_found: list[str]         # Entities discovered
     relationships_found: list[dict]   # Relationships discovered
-    
+
     # -------------------------------------------------------------------------
     # Critique (Self-Reflection)
     # -------------------------------------------------------------------------
@@ -162,7 +162,7 @@ class ResearchState(TypedDict, total=False):
     needs_refinement: bool            # Should we loop back?
     refinement_type: str              # RefinementType - which tool to use
     refinement_focus: str             # What to focus on if refining
-    
+
     # -------------------------------------------------------------------------
     # Output
     # -------------------------------------------------------------------------
@@ -176,14 +176,14 @@ class ResearchState(TypedDict, total=False):
     # Slides Sharing
     # -------------------------------------------------------------------------
     user_share_email: str | None      # Email to share slides with (user-provided)
-    
+
     # -------------------------------------------------------------------------
     # Control Flow
     # -------------------------------------------------------------------------
     iteration: int                    # Current iteration count
     max_iterations: int               # Maximum allowed iterations
     error: str | None                 # Error message if failed
-    
+
 
 # =============================================================================
 # State Factory Functions
@@ -192,11 +192,11 @@ class ResearchState(TypedDict, total=False):
 def create_initial_state(query: str, max_iterations: int = 3) -> ResearchState:
     """
     Create the initial state for a new research query.
-    
+
     Args:
         query: The user's research question
         max_iterations: Maximum research loops allowed
-        
+
     Returns:
         Initial ResearchState ready for processing
     """
@@ -239,7 +239,7 @@ def create_initial_state(query: str, max_iterations: int = 3) -> ResearchState:
 def state_summary(state: ResearchState) -> str:
     """
     Generate a human-readable summary of the current state.
-    
+
     Useful for debugging and LangSmith traces.
     """
     return f"""

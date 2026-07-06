@@ -74,7 +74,7 @@ def _format_results(results: list[dict], max_items: int = 20) -> str:
     """Format results for the prompt."""
     if not results:
         return "No data retrieved."
-    
+
     formatted = []
     for item in results[:max_items]:
         # Handle different result formats
@@ -111,7 +111,7 @@ def _format_results(results: list[dict], max_items: int = 20) -> str:
         else:
             # Generic format
             formatted.append(f"- {json.dumps(item)[:200]}")
-    
+
     if len(results) > max_items:
         formatted.append(f"... and {len(results) - max_items} more items")
 
@@ -185,7 +185,7 @@ def _parse_analysis_response(response: str) -> dict[str, Any]:
         if cleaned.startswith("json"):
             cleaned = cleaned[4:]
     cleaned = cleaned.strip()
-    
+
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
@@ -202,14 +202,14 @@ def _parse_analysis_response(response: str) -> dict[str, Any]:
 def analyzer_node(state: ResearchState) -> dict[str, Any]:
     """
     Analyze and synthesize retrieved data.
-    
+
     This node:
     1. Aggregates all retrieved data
     2. Extracts entities and relationships
     3. Generates insights relevant to the query type
     4. Creates a synthesis addressing the original query
     5. Leverages Tavily's AI summary when available
-    
+
     Returns:
         State updates with analysis results
     """
@@ -223,7 +223,7 @@ def analyzer_node(state: ResearchState) -> dict[str, Any]:
 
     total_results = len(graph_results) + len(vector_results) + len(web_results) + len(financial_results)
     logger.info("🧠 Analyzer: Synthesizing %d results...", total_results)
-    
+
     if web_ai_answer:
         logger.info("   📝 Tavily AI summary available (%d chars)", len(web_ai_answer))
 
@@ -239,9 +239,9 @@ def analyzer_node(state: ResearchState) -> dict[str, Any]:
             "insights": [],
             "synthesis": "I couldn't find relevant information to analyze for this query.",
         }
-    
+
     llm = get_llm(temperature=0.3)  # Slightly creative for synthesis
-    
+
     # Build the analysis prompt
     prompt = ANALYZER_PROMPT.format(
         query=query,
@@ -252,23 +252,23 @@ def analyzer_node(state: ResearchState) -> dict[str, Any]:
         web_ai_summary=web_ai_answer if web_ai_answer else "No AI summary available.",
         financial_data=_format_financial_results(financial_results),
     )
-    
+
     response = llm.invoke(prompt)
     analysis = _parse_analysis_response(response.content)
-    
+
     # Extract and structure the results
     insights = analysis.get("insights", [])
     entities = analysis.get("entities_found", [])
     relationships = analysis.get("relationships_found", [])
     synthesis = analysis.get("synthesis", "")
     gaps = analysis.get("gaps_identified", [])
-    
+
     logger.info("   Found %d entities, %d relationships, %d insights",
                len(entities), len(relationships), len(insights))
-    
+
     if gaps:
         logger.info("   Gaps identified: %s", ", ".join(gaps[:3]))
-    
+
     return {
         "entities_found": entities,
         "relationships_found": relationships,

@@ -166,7 +166,7 @@ def _parse_plan_response(response: str) -> dict[str, Any]:
 def planner_node(state: ResearchState) -> dict[str, Any]:
     """
     Plan the research approach.
-    
+
     This node:
     1. Analyzes the user's query
     2. Classifies the query type
@@ -174,35 +174,35 @@ def planner_node(state: ResearchState) -> dict[str, Any]:
     4. Decides retrieval strategy
     5. Creates a multi-step research plan
     6. Determines output format
-    
+
     Returns:
         State updates with the research plan
     """
     query = state["original_query"]
     logger.info("📋 Planner: Analyzing query and creating research plan...")
-    
+
     llm = get_llm(temperature=0)  # Deterministic for planning
-    
+
     # Generate the plan
     prompt = PLANNER_PROMPT.format(query=query)
     response = llm.invoke(prompt)
-    
+
     # Parse the response
     plan_data = _parse_plan_response(response.content)
-    
+
     # Validate and normalize
     query_type = plan_data.get("query_type", QueryType.UNKNOWN.value)
     if query_type not in [qt.value for qt in QueryType]:
         query_type = QueryType.UNKNOWN.value
-        
+
     retrieval_strategy = plan_data.get("retrieval_strategy", RetrievalStrategy.HYBRID.value)
     if retrieval_strategy not in [rs.value for rs in RetrievalStrategy]:
         retrieval_strategy = RetrievalStrategy.HYBRID.value
-        
+
     output_format = plan_data.get("output_format", OutputFormat.CHAT.value)
     if output_format not in [of.value for of in OutputFormat]:
         output_format = OutputFormat.CHAT.value
-    
+
     # Build research steps
     research_plan = []
     for step in plan_data.get("research_plan", []):
@@ -212,7 +212,7 @@ def planner_node(state: ResearchState) -> dict[str, Any]:
             "status": "pending",
             "results": [],
         })
-    
+
     # Ensure at least one step
     if not research_plan:
         research_plan.append({
@@ -221,7 +221,7 @@ def planner_node(state: ResearchState) -> dict[str, Any]:
             "status": "pending",
             "results": [],
         })
-    
+
     # Extract stock symbols for financial queries
     stock_symbols = plan_data.get("stock_symbols", [])
     entities = plan_data.get("entities_of_interest", [])

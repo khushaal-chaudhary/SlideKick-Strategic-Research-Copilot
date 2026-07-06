@@ -33,13 +33,6 @@ dependencies = [
     "langchain-openai>=0.2.0",         # For OpenAI
     "langchain-groq>=0.2.0",           # For Groq (fast inference)
     
-    # Embeddings & Search
-    "sentence-transformers>=3.0.0",
-    
-    # Graph analysis
-    "networkx>=3.0",
-    "python-louvain>=0.16",
-    
     # Document processing
     "langchain-text-splitters>=0.3.0",
     
@@ -89,9 +82,15 @@ packages = ["src/copilot"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
+# E501: long lines are dominated by LLM prompt strings
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/copilot/agent/nodes/generator.py" = ["N806"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
