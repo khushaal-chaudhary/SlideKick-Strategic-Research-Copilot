@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { Header } from "@/components/header";
 import { EvalDashboard } from "@/components/eval-dashboard";
 
 export const metadata: Metadata = {
@@ -11,7 +12,9 @@ export const metadata: Metadata = {
 
 export default function MetricsPage() {
   return (
-    <main className="container py-10">
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="container py-10">
       <div className="mb-8">
         <Link
           href="/"
@@ -30,7 +33,8 @@ export default function MetricsPage() {
           the agent&apos;s self-critique agrees with the external judge.
         </p>
       </div>
-      <EvalDashboard />
-    </main>
+        <EvalDashboard />
+      </main>
+    </div>
   );
 }
