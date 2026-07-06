@@ -21,8 +21,14 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 logger = logging.getLogger(__name__)
 
-# flash-lite: free tier allows ~1000 req/day vs 20/day for gemini-2.5-flash
-JUDGE_MODEL = os.environ.get("EVAL_JUDGE_MODEL", "gemini-2.5-flash-lite")
+# gemini: independent model family, but free tier caps at ~20 req/day.
+# groq: shares the agent's Groq quota, so use a non-Llama model there
+# (gpt-oss) to preserve the different-family judging property.
+JUDGE_PROVIDER = os.environ.get("EVAL_JUDGE_PROVIDER", "gemini")
+JUDGE_MODEL = os.environ.get(
+    "EVAL_JUDGE_MODEL",
+    "gemini-2.5-flash-lite" if JUDGE_PROVIDER == "gemini" else "openai/gpt-oss-120b",
+)
 
 
 FACT_RECALL_PROMPT = """You are an exacting evaluation judge. Given an answer produced by a research agent and a list of expected key facts, decide for EACH fact whether the answer contains it (semantically — exact wording is not required).
@@ -83,7 +89,15 @@ class AnswerQualityResult:
     reasoning: str
 
 
-def get_judge_llm() -> ChatGoogleGenerativeAI:
+def get_judge_llm():
+    if JUDGE_PROVIDER == "groq":
+        from langchain_groq import ChatGroq
+
+        return ChatGroq(
+            model=JUDGE_MODEL,
+            temperature=0.0,
+            api_key=os.environ["GROQ_API_KEY"],
+        )
     return ChatGoogleGenerativeAI(
         model=JUDGE_MODEL,
         temperature=0.0,

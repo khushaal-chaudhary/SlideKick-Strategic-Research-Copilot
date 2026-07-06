@@ -40,6 +40,9 @@ jobs:
           LLM_PROVIDER: groq
           LLM_MODEL: llama-3.3-70b-versatile
           LLM_FALLBACK_PROVIDER: none
+          # gpt-oss judge on Groq: different model family than the Llama agent,
+          # and Gemini free tier (~20 req/day) can't cover a full eval run
+          EVAL_JUDGE_PROVIDER: groq
           LANGCHAIN_TRACING_V2: "false"
         run: |
           SUBSET="${{ github.event.inputs.subset }}"

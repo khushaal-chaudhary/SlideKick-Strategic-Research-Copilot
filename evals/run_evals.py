@@ -34,6 +34,8 @@ sys.path.insert(0, str(REPO_ROOT / "packages" / "agent" / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from judges import (  # noqa: E402
+    JUDGE_MODEL,
+    JUDGE_PROVIDER,
     get_judge_llm,
     judge_answer_quality,
     judge_fact_recall,
@@ -175,7 +177,7 @@ def run(dataset_path: Path, subset: int | None, sleep_s: float) -> dict:
     return {
         "run_date": date.today().isoformat(),
         "timestamp": datetime.now(UTC).isoformat(),
-        "judge_model": os.environ.get("EVAL_JUDGE_MODEL", "gemini-2.5-flash-lite"),
+        "judge_model": f"{JUDGE_PROVIDER}/{JUDGE_MODEL}",
         "agent_provider": os.environ.get("LLM_PROVIDER", "unset"),
         "n_queries": len(rows),
         "n_scored": len(scored),
