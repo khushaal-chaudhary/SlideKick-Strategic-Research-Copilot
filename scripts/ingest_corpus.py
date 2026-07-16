@@ -229,8 +229,28 @@ def ingest_graph(graph: Neo4jGraph, raw_docs, batch_size: int, sleep_s: float, s
         if i < len(documents) and sleep_s:
             time.sleep(sleep_s)
 
+    cleanup_off_schema(graph)
     graph.refresh_schema()
     logger.info("Graph ingestion complete: %d nodes, %d relationships", total_nodes, total_rels)
+
+
+def cleanup_off_schema(graph: Neo4jGraph):
+    """Remove the small amount of off-schema output the LLM emits despite the allowed lists."""
+    # LLMGraphTransformer title-cases multi-word labels (MonetaryAmount -> Monetaryamount)
+    graph.query("MATCH (n:Monetaryamount) SET n:MonetaryAmount REMOVE n:Monetaryamount")
+
+    rel_rows = graph.query("MATCH ()-[r]->() RETURN DISTINCT type(r) AS t")
+    for row in rel_rows:
+        if row["t"] not in ALLOWED_RELATIONSHIPS:
+            graph.query(f"MATCH ()-[r:`{row['t']}`]->() DELETE r")
+            logger.info("Removed off-schema relationship type: %s", row["t"])
+
+    keep = set(ALLOWED_NODES) | {"DocumentChunk"}
+    label_rows = graph.query("MATCH (n) UNWIND labels(n) AS l RETURN DISTINCT l")
+    for row in label_rows:
+        if row["l"] not in keep:
+            graph.query(f"MATCH (n:`{row['l']}`) DETACH DELETE n")
+            logger.info("Removed off-schema node label: %s", row["l"])
 
 
 def ingest_vectors(graph: Neo4jGraph, raw_docs, batch_size: int):
