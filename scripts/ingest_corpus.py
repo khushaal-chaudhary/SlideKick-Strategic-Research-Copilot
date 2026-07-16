@@ -146,6 +146,7 @@ def connect() -> Neo4jGraph:
         url=os.environ["NEO4J_URI"],
         username=os.environ.get("NEO4J_USERNAME", "neo4j"),
         password=os.environ["NEO4J_PASSWORD"],
+        database=os.environ.get("NEO4J_DATABASE") or "neo4j",
     )
     logger.info("Connected to Neo4j at %s", os.environ["NEO4J_URI"])
     return graph
@@ -195,22 +196,35 @@ def ingest_graph(graph: Neo4jGraph, raw_docs, batch_size: int, sleep_s: float):
         strict_mode=False,
     )
 
-    total_nodes = total_rels = 0
-    for i in range(0, len(documents), batch_size):
-        batch = documents[i : i + batch_size]
-        graph_docs = transformer.convert_to_graph_documents(batch)
+    total_nodes = total_rels = skipped = 0
+    for i, doc in enumerate(documents, 1):
+        graph_docs = None
+        # Groq function-calling occasionally emits malformed JSON
+        # (tool_use_failed); retry, then skip so one flaky chunk
+        # doesn't kill the whole run
+        for attempt in range(3):
+            try:
+                graph_docs = transformer.convert_to_graph_documents([doc])
+                break
+            except Exception as e:
+                logger.warning("chunk %d attempt %d failed: %s", i, attempt + 1, str(e)[:200])
+                time.sleep(5 * (attempt + 1))
+        if graph_docs is None:
+            skipped += 1
+            continue
         graph.add_graph_documents(graph_docs)
         total_nodes += sum(len(d.nodes) for d in graph_docs)
         total_rels += sum(len(d.relationships) for d in graph_docs)
-        logger.info(
-            "graph batch %d-%d/%d done (running totals: %d nodes, %d rels)",
-            i + 1,
-            min(i + batch_size, len(documents)),
-            len(documents),
-            total_nodes,
-            total_rels,
-        )
-        if i + batch_size < len(documents) and sleep_s:
+        if i % batch_size == 0 or i == len(documents):
+            logger.info(
+                "graph chunk %d/%d (totals: %d nodes, %d rels, %d skipped)",
+                i,
+                len(documents),
+                total_nodes,
+                total_rels,
+                skipped,
+            )
+        if i < len(documents) and sleep_s:
             time.sleep(sleep_s)
 
     graph.refresh_schema()

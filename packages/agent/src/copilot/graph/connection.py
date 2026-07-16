@@ -34,6 +34,7 @@ class GraphConnection:
                 url=settings.neo4j_uri,
                 username=settings.neo4j_username,
                 password=settings.neo4j_password_str,
+                database=settings.neo4j_database or "neo4j",
             )
             self._graph.refresh_schema()
             logger.info("✅ Connected to Neo4j successfully.")

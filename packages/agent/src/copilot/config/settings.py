@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     neo4j_uri: str = Field(..., description="Neo4j connection URI")
     neo4j_username: str = Field(default="neo4j")
     neo4j_password: SecretStr = Field(...)
+    # newer Aura instances name the default database after the instance ID
+    # instead of "neo4j"
+    neo4j_database: str = Field(default="neo4j")
 
     # -------------------------------------------------------------------------
     # LLM Provider Selection
