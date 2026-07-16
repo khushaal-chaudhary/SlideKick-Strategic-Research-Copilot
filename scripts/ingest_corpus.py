@@ -163,7 +163,7 @@ def load_documents():
     return raw_docs
 
 
-def ingest_graph(graph: Neo4jGraph, raw_docs, batch_size: int, sleep_s: float):
+def ingest_graph(graph: Neo4jGraph, raw_docs, batch_size: int, sleep_s: float, start: int = 1):
     from langchain_experimental.graph_transformers import LLMGraphTransformer
     from langchain_groq import ChatGroq
 
@@ -198,6 +198,8 @@ def ingest_graph(graph: Neo4jGraph, raw_docs, batch_size: int, sleep_s: float):
 
     total_nodes = total_rels = skipped = 0
     for i, doc in enumerate(documents, 1):
+        if i < start:
+            continue
         graph_docs = None
         # Groq function-calling occasionally emits malformed JSON
         # (tool_use_failed); retry, then skip so one flaky chunk
@@ -287,6 +289,7 @@ def main():
     parser.add_argument("--clear", action="store_true", help="Delete all nodes first")
     parser.add_argument("--batch-size", type=int, default=10)
     parser.add_argument("--sleep", type=float, default=10.0, help="Seconds between extraction batches")
+    parser.add_argument("--start", type=int, default=1, help="Resume graph extraction at this chunk (1-based)")
     args = parser.parse_args()
 
     graph = connect()
@@ -301,7 +304,7 @@ def main():
     raw_docs = load_documents()
 
     if not args.vectors_only:
-        ingest_graph(graph, raw_docs, args.batch_size, args.sleep)
+        ingest_graph(graph, raw_docs, args.batch_size, args.sleep, args.start)
     if not args.graph_only:
         ingest_vectors(graph, raw_docs, args.batch_size)
 
