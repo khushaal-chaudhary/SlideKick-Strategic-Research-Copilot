@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
-import { FileText, CheckCircle2, BarChart3, Download, Presentation } from "lucide-react";
+import { FileText, CheckCircle2, BarChart3, Download, Presentation, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { API_CONFIG } from "@/lib/constants";
 
 interface ResponseViewerProps {
   response: string | null;
   isLoading?: boolean;
+  isStreaming?: boolean;
   qualityScore?: number;
   sources?: string[];
 }
@@ -39,6 +40,7 @@ function extractDownloadInfo(response: string | null): {
 export function ResponseViewer({
   response,
   isLoading = false,
+  isStreaming = false,
   qualityScore,
   sources,
 }: ResponseViewerProps) {
@@ -82,10 +84,17 @@ export function ResponseViewer({
                   {Math.round(qualityScore * 100)}% quality
                 </Badge>
               )}
-              <Badge variant="outline" className="gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                Complete
-              </Badge>
+              {isStreaming ? (
+                <Badge variant="outline" className="gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Writing...
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Complete
+                </Badge>
+              )}
             </div>
           </div>
         </CardHeader>

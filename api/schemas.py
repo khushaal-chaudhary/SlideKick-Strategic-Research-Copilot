@@ -48,6 +48,7 @@ class EventType(str, Enum):
 
     # Output events
     OUTPUT = "output"
+    TOKEN = "token"
     FINAL_RESPONSE = "final_response"
 
 

@@ -342,19 +342,28 @@ class ResearchCopilot:
         result = self.research(query)
         return result.get("final_response", "No response generated.")
 
-    def stream(self, query: str, thread_id: str | None = None, workspace_id: str | None = None):
+    def stream(
+        self,
+        query: str,
+        thread_id: str | None = None,
+        workspace_id: str | None = None,
+        stream_mode: str | list[str] = "updates",
+    ):
         """
         Stream the research execution.
 
-        Yields state updates as each node executes.
+        Yields state updates as each node executes. With
+        stream_mode=["updates", "messages"], LLM tokens are interleaved as
+        ("messages", (chunk, metadata)) tuples for token-level streaming.
 
         Args:
             query: The research question
             thread_id: Optional thread ID
             workspace_id: Optional BYOD namespace to include in retrieval
+            stream_mode: LangGraph stream mode(s)
 
         Yields:
-            State updates from each node
+            State updates from each node (tagged tuples when multiple modes)
         """
         from copilot.agent.state import create_initial_state
 
@@ -368,7 +377,7 @@ class ResearchCopilot:
         if thread_id:
             config["configurable"] = {"thread_id": thread_id}
 
-        yield from self._graph.stream(initial_state, config=config)
+        yield from self._graph.stream(initial_state, config=config, stream_mode=stream_mode)
 
 
 def create_copilot(checkpointer=None) -> ResearchCopilot:

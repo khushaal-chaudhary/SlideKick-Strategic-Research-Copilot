@@ -12,6 +12,7 @@ interface ResearchState {
   isLoading: boolean;
   events: LogEvent[];
   response: string | null;
+  streamingText: string | null;
   qualityScore: number | null;
   sources: string[];
   error: ErrorInfo | null;
@@ -23,6 +24,7 @@ export function useResearch() {
     isLoading: false,
     events: [],
     response: null,
+    streamingText: null,
     qualityScore: null,
     sources: [],
     error: null,
@@ -67,6 +69,7 @@ export function useResearch() {
         isLoading: true,
         events: [],
         response: null,
+        streamingText: null,
         qualityScore: null,
         sources: [],
         error: null,
@@ -143,6 +146,7 @@ export function useResearch() {
           result_count?: number;
           decision?: string;
           reasoning?: string;
+          content?: string;
           [key: string]: unknown;
         }) => {
           switch (data.type) {
@@ -178,9 +182,17 @@ export function useResearch() {
               addEvent("decision", `${data.decision}: ${data.reasoning}`);
               break;
 
+            case "token":
+              setState((prev) => ({
+                ...prev,
+                streamingText: (prev.streamingText || "") + (data.content || ""),
+              }));
+              break;
+
             case "final_response":
               setState((prev) => ({
                 ...prev,
+                streamingText: null,
                 response: data.response || null,
                 qualityScore: data.quality_score || null,
                 sources: data.sources_used || [],
@@ -235,6 +247,7 @@ export function useResearch() {
       isLoading: false,
       events: [],
       response: null,
+      streamingText: null,
       qualityScore: null,
       sources: [],
       error: null,

@@ -402,7 +402,12 @@ async def _run_real_agent(
             copilot = create_copilot()
             copilot.configure(max_iterations=settings.max_iterations)
 
-            for event in copilot.stream(query, thread_id=session_id, workspace_id=workspace_id):
+            for event in copilot.stream(
+                query,
+                thread_id=session_id,
+                workspace_id=workspace_id,
+                stream_mode=["updates", "messages"],
+            ):
                 event_queue.put(("event", event))
 
             event_queue.put(("done", None))
@@ -423,17 +428,17 @@ async def _run_real_agent(
     last_state = {}
 
     while True:
-        # Non-blocking sleep to keep event loop responsive
-        await asyncio.sleep(0.1)
-
         try:
-            # Non-blocking queue check
+            # Non-blocking queue check (tokens arrive far faster than 10/s,
+            # so only sleep when the queue is empty)
             try:
                 msg_type, payload = event_queue.get_nowait()
             except Empty:
                 # If the thread died without putting anything in the queue, bail out
                 if not agent_thread.is_alive():
                     raise RuntimeError("Agent thread terminated unexpectedly without producing results")
+                # Non-blocking sleep to keep event loop responsive
+                await asyncio.sleep(0.05)
                 continue
 
             if msg_type == "done":
@@ -442,9 +447,30 @@ async def _run_real_agent(
             if msg_type == "error":
                 raise payload
 
-            # Process LangGraph event
-            event = payload
-            for node_name, state in event.items():
+            # Process LangGraph event — (mode, data) tuples because we
+            # stream with stream_mode=["updates", "messages"]
+            mode, data = payload
+
+            if mode == "messages":
+                # Token-level streaming: forward generator-node LLM tokens
+                chunk, metadata = data
+                if metadata.get("langgraph_node") == "generator":
+                    content = getattr(chunk, "content", "")
+                    if isinstance(content, str) and content:
+                        yield {
+                            "event": "message",
+                            "data": json.dumps(
+                                {
+                                    "type": EventType.TOKEN.value,
+                                    "session_id": session_id,
+                                    "content": content,
+                                    "timestamp": datetime.utcnow().isoformat(),
+                                }
+                            ),
+                        }
+                continue
+
+            for node_name, state in data.items():
                 if node_name not in node_mapping:
                     continue
 

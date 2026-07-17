@@ -22,6 +22,7 @@ export default function Home() {
     isLoading,
     events,
     response,
+    streamingText,
     qualityScore,
     sources,
     error,
@@ -70,7 +71,7 @@ export default function Home() {
             )}
 
             {/* Results Grid */}
-            {(events.length > 0 || response) && (
+            {(events.length > 0 || response || streamingText) && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -84,9 +85,10 @@ export default function Home() {
 
                 {/* Response */}
                 <div className="lg:order-1">
-                  {response && !slidesContent && (
+                  {(response || streamingText) && !slidesContent && (
                     <ResponseViewer
-                      response={response}
+                      response={response ?? streamingText}
+                      isStreaming={!response && !!streamingText}
                       qualityScore={qualityScore ?? undefined}
                       sources={sources}
                     />
