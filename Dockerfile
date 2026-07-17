@@ -37,9 +37,14 @@ WORKDIR /home/user/app
 # Copy requirements first for better caching
 COPY --chown=user:user api/requirements.txt ./requirements.txt
 
-# Install Python dependencies
+# Install Python dependencies (torch first from the CPU wheel index so
+# sentence-transformers doesn't drag in the multi-GB CUDA build)
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
+
+# Bake the rerank cross-encoder into the image to avoid cold-start downloads
+RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 
 # Copy the agent package
 COPY --chown=user:user packages/agent/src/copilot ./copilot

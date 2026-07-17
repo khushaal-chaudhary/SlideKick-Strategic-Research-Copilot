@@ -57,6 +57,13 @@ python-dotenv>=1.0.0
 tenacity>=8.2.0
 
 # =============================================================================
+# Reranking (cross-encoder, CPU)
+# torch is installed separately in the Dockerfile from the CPU wheel index
+# to avoid pulling multi-GB CUDA builds on HF Spaces
+# =============================================================================
+sentence-transformers>=3.0.0
+
+# =============================================================================
 # Presentation Generation
 # =============================================================================
 python-pptx>=0.6.21  # PowerPoint generation fallback

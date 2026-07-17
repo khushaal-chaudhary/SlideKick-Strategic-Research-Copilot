@@ -15,11 +15,21 @@ from copilot.agent.nodes.critic import critic_node
 from copilot.agent.nodes.generator import generator_node
 from copilot.agent.nodes.planner import planner_node
 from copilot.agent.nodes.responder import responder_node
-from copilot.agent.nodes.retriever import retriever_node
+from copilot.agent.nodes.retrieval import (
+    financial_retrieval_node,
+    graph_retrieval_node,
+    rerank_node,
+    vector_retrieval_node,
+    web_retrieval_node,
+)
 
 __all__ = [
     "planner_node",
-    "retriever_node",
+    "graph_retrieval_node",
+    "vector_retrieval_node",
+    "web_retrieval_node",
+    "financial_retrieval_node",
+    "rerank_node",
     "analyzer_node",
     "critic_node",
     "generator_node",

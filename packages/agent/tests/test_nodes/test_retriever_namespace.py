@@ -1,7 +1,7 @@
 """Namespace handling in the retriever's graph and vector queries."""
 
 import copilot.graph.connection as connection_module
-from copilot.agent.nodes.retriever import _query_graph, _query_vector
+from copilot.agent.nodes.retrieval import _query_graph, _query_vector
 
 NS = "test-workspace-1234"
 

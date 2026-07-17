@@ -11,6 +11,7 @@ Key Design Decisions:
 4. iteration tracking: Prevents infinite loops
 """
 
+import operator
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Annotated, Any, TypedDict
@@ -140,12 +141,15 @@ class ResearchState(TypedDict, total=False):
     # -------------------------------------------------------------------------
     # Retrieval Results
     # -------------------------------------------------------------------------
-    graph_results: list[dict]         # Results from Neo4j
-    vector_results: list[dict]        # Results from vector search
-    web_results: list[dict]           # Results from web search
+    # operator.add reducers let retrieval nodes run in parallel (LangGraph
+    # Send fan-out) and each return only its delta; LangGraph concatenates.
+    graph_results: Annotated[list[dict], operator.add]      # Results from Neo4j
+    vector_results: Annotated[list[dict], operator.add]     # Results from vector search
+    web_results: Annotated[list[dict], operator.add]        # Results from web search
     web_ai_answer: str                # AI-generated summary from Tavily
-    financial_results: list[dict]     # Results from Alpha Vantage financial API
-    all_retrievals: list[dict]        # All RetrievalResult as dicts
+    financial_results: Annotated[list[dict], operator.add]  # Alpha Vantage results
+    all_retrievals: Annotated[list[dict], operator.add]     # All RetrievalResult as dicts
+    reranked_results: list[dict]      # Cross-encoder ranked view of all sources
 
     # -------------------------------------------------------------------------
     # Analysis
@@ -220,6 +224,7 @@ def create_initial_state(
         web_ai_answer="",
         financial_results=[],
         all_retrievals=[],
+        reranked_results=[],
         insights=[],
         synthesis="",
         entities_found=[],

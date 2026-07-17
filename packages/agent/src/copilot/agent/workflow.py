@@ -19,21 +19,68 @@ from langgraph.graph import END, StateGraph
 from copilot.agent.nodes import (
     analyzer_node,
     critic_node,
+    financial_retrieval_node,
     generator_node,
+    graph_retrieval_node,
     planner_node,
+    rerank_node,
     responder_node,
-    retriever_node,
+    vector_retrieval_node,
+    web_retrieval_node,
 )
-from copilot.agent.state import ResearchState
+from copilot.agent.state import RefinementType, ResearchState, RetrievalStrategy
 
 logger = logging.getLogger(__name__)
+
+RETRIEVAL_NODES = [
+    "graph_retrieval",
+    "vector_retrieval",
+    "web_retrieval",
+    "financial_retrieval",
+]
+
+# Which retrieval node executes each critic refinement request
+REFINEMENT_TO_NODE = {
+    RefinementType.WEB_SEARCH.value: "web_retrieval",
+    RefinementType.VECTOR_SEARCH.value: "vector_retrieval",
+    RefinementType.MORE_GRAPH.value: "graph_retrieval",
+    RefinementType.FINANCIAL_DATA.value: "financial_retrieval",
+}
 
 
 # =============================================================================
 # Decision Functions (Used by Conditional Edges)
 # =============================================================================
 
-def should_continue_research(state: ResearchState) -> Literal["retriever", "generator"]:
+def route_retrieval(state: ResearchState) -> list[str]:
+    """
+    First-pass retrieval fan-out based on the planner's strategy.
+
+    Returning multiple node names makes LangGraph run them in PARALLEL;
+    the reducers on the result lists merge their outputs.
+    """
+    strategy = state.get("retrieval_strategy", RetrievalStrategy.HYBRID.value)
+
+    if strategy == RetrievalStrategy.FINANCIAL_FIRST.value:
+        if state.get("stock_symbols"):
+            targets = ["financial_retrieval", "graph_retrieval"]
+        else:
+            targets = ["graph_retrieval"]
+    elif strategy == RetrievalStrategy.VECTOR_ONLY.value:
+        targets = ["vector_retrieval"]
+    elif strategy == RetrievalStrategy.WEB_ONLY.value:
+        targets = ["web_retrieval"]
+    elif strategy == RetrievalStrategy.GRAPH_ONLY.value:
+        targets = ["graph_retrieval"]
+    else:
+        # HYBRID / GRAPH_THEN_WEB: graph + vector concurrently
+        targets = ["graph_retrieval", "vector_retrieval"]
+
+    logger.info("🔀 Retrieval fan-out: %s (strategy: %s)", targets, strategy)
+    return targets
+
+
+def should_continue_research(state: ResearchState) -> Literal["retrieve", "generator"]:
     """
     Decide whether to loop back for more research or proceed to generation.
 
@@ -43,7 +90,7 @@ def should_continue_research(state: ResearchState) -> Literal["retriever", "gene
     - refinement_type: which tool to use (web_search, more_graph, etc.)
 
     Returns:
-        "retriever" if we need more data (critic requested refinement)
+        "retrieve" if we need more data (critic requested refinement)
         "generator" if we're ready to generate output
     """
     needs_refinement = state.get("needs_refinement", False)
@@ -54,13 +101,21 @@ def should_continue_research(state: ResearchState) -> Literal["retriever", "gene
     if needs_refinement and iteration < max_iterations:
         logger.info("🔄 Decision: Loop back for refinement (iteration %d, tool: %s)",
                    iteration, refinement_type)
-        return "retriever"
+        return "retrieve"
     else:
         if iteration >= max_iterations:
             logger.info("✅ Decision: Max iterations reached, proceeding to generation")
         else:
             logger.info("✅ Decision: Quality sufficient, proceeding to generation")
         return "generator"
+
+
+def route_after_critic(state: ResearchState) -> list[str]:
+    """Send the critic's refinement request to the matching retrieval node."""
+    if should_continue_research(state) == "generator":
+        return ["generator"]
+    node = REFINEMENT_TO_NODE.get(state.get("refinement_type", ""), "graph_retrieval")
+    return [node]
 
 
 # =============================================================================
@@ -73,7 +128,7 @@ def build_research_graph() -> StateGraph:
 
     Graph Structure (Simplified):
 
-    ┌─────────────────────────────────────────────────────────────────┐
+    ┌──────────────────────────────────────────────────────────────────┐
     │                                                                  │
     │    START                                                         │
     │      │                                                           │
@@ -81,43 +136,36 @@ def build_research_graph() -> StateGraph:
     │  ┌─────────┐                                                     │
     │  │ PLANNER │ ─── Understand query, extract entities              │
     │  └────┬────┘                                                     │
-    │       │                                                          │
+    │       │  fan-out by strategy (parallel)                          │
+    │   ┌───┴────┬─────────┬───────────┐                               │
+    │   ▼        ▼         ▼           ▼                               │
+    │ GRAPH   VECTOR      WEB      FINANCIAL   ◄── critic loops back   │
+    │   │        │         │           │           to ONE of these     │
+    │   └───┬────┴─────────┴───────────┘                               │
     │       ▼                                                          │
-    │  ┌───────────┐                                                   │
-    │  │ RETRIEVER │ ◄─────────────────────────────────────┐          │
-    │  └─────┬─────┘   Executes tool requested by Critic   │          │
-    │        │         (graph, web_search, vector, etc.)   │          │
-    │        │                                              │          │
-    │        ▼                                              │          │
-    │  ┌──────────┐                                         │          │
-    │  │ ANALYZER │ ─── Synthesize all retrieved data       │          │
-    │  └────┬─────┘                                         │          │
-    │       │                                               │          │
-    │       ▼                                               │          │
-    │  ┌─────────┐                                          │          │
-    │  │ CRITIC  │ ─── Evaluate quality & decide next tool  │          │
-    │  └────┬────┘                                          │          │
-    │       │                                               │          │
-    │       ▼                                               │          │
-    │  ┌─────────────┐                                      │          │
-    │  │ Good enough?│                                      │          │
-    │  └──────┬──────┘                                      │          │
-    │         │                                             │          │
-    │   ┌─────┴─────┐                                       │          │
-    │   │           │                                       │          │
-    │  YES         NO ──────────────────────────────────────┘          │
-    │   │         (Loop back with refinement_type set)                 │
-    │   │                                                              │
-    │   ▼                                                              │
+    │  ┌──────────┐                                                    │
+    │  │ RERANKER │ ─── Cross-encoder scores merged results (fan-in)   │
+    │  └────┬─────┘                                                    │
+    │       ▼                                                          │
+    │  ┌──────────┐                                                    │
+    │  │ ANALYZER │ ─── Synthesize all retrieved data                  │
+    │  └────┬─────┘                                                    │
+    │       ▼                                                          │
+    │  ┌─────────┐                                                     │
+    │  │ CRITIC  │ ─── Evaluate quality & decide next tool             │
+    │  └────┬────┘                                                     │
+    │       ▼                                                          │
+    │  Good enough? ── NO ──► back to the requested retrieval node     │
+    │       │                                                          │
+    │      YES                                                         │
+    │       ▼                                                          │
     │  ┌───────────┐                                                   │
     │  │ GENERATOR │ ─── Create deliverable                            │
     │  └─────┬─────┘                                                   │
-    │        │                                                         │
     │        ▼                                                         │
     │  ┌───────────┐                                                   │
     │  │ RESPONDER │ ─── Format final response                         │
     │  └─────┬─────┘                                                   │
-    │        │                                                         │
     │        ▼                                                         │
     │       END                                                        │
     │                                                                  │
@@ -133,7 +181,11 @@ def build_research_graph() -> StateGraph:
     # Add Nodes
     # -------------------------------------------------------------------------
     workflow.add_node("planner", planner_node)
-    workflow.add_node("retriever", retriever_node)
+    workflow.add_node("graph_retrieval", graph_retrieval_node)
+    workflow.add_node("vector_retrieval", vector_retrieval_node)
+    workflow.add_node("web_retrieval", web_retrieval_node)
+    workflow.add_node("financial_retrieval", financial_retrieval_node)
+    workflow.add_node("reranker", rerank_node)
     workflow.add_node("analyzer", analyzer_node)
     workflow.add_node("critic", critic_node)
     workflow.add_node("generator", generator_node)
@@ -145,14 +197,16 @@ def build_research_graph() -> StateGraph:
     workflow.set_entry_point("planner")
 
     # -------------------------------------------------------------------------
-    # Add Edges (Simplified - no multi-step research plan)
+    # Add Edges
     # -------------------------------------------------------------------------
 
-    # Planner → Retriever (start retrieving after planning)
-    workflow.add_edge("planner", "retriever")
+    # Planner → retrieval fan-out (parallel nodes chosen by strategy)
+    workflow.add_conditional_edges("planner", route_retrieval, RETRIEVAL_NODES)
 
-    # Retriever → Analyzer (always analyze after retrieval)
-    workflow.add_edge("retriever", "analyzer")
+    # Every retrieval node joins at the reranker (fan-in), then analysis
+    for node_name in RETRIEVAL_NODES:
+        workflow.add_edge(node_name, "reranker")
+    workflow.add_edge("reranker", "analyzer")
 
     # Analyzer → Critic (always critique after analysis)
     workflow.add_edge("analyzer", "critic")
@@ -165,11 +219,8 @@ def build_research_graph() -> StateGraph:
     #   - refinement_focus: optimized query for the tool
     workflow.add_conditional_edges(
         "critic",
-        should_continue_research,
-        {
-            "retriever": "retriever",  # Need more data (LOOP!)
-            "generator": "generator",  # Quality sufficient
-        },
+        route_after_critic,
+        RETRIEVAL_NODES + ["generator"],
     )
 
     # Generator → Responder (always respond after generating)

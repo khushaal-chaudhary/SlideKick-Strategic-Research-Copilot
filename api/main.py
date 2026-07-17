@@ -373,11 +373,23 @@ async def _run_real_agent(
     # Map LangGraph node names to our AgentNode enum
     node_mapping = {
         "planner": AgentNode.PLANNER,
-        "retriever": AgentNode.RETRIEVER,
+        # The retrieval fan-out nodes and reranker all surface as "retriever"
+        # to the frontend log viewer
+        "graph_retrieval": AgentNode.RETRIEVER,
+        "vector_retrieval": AgentNode.RETRIEVER,
+        "web_retrieval": AgentNode.RETRIEVER,
+        "financial_retrieval": AgentNode.RETRIEVER,
+        "reranker": AgentNode.RETRIEVER,
         "analyzer": AgentNode.ANALYZER,
         "critic": AgentNode.CRITIC,
         "generator": AgentNode.GENERATOR,
         "responder": AgentNode.RESPONDER,
+    }
+    retrieval_nodes = {
+        "graph_retrieval": "graph",
+        "vector_retrieval": "vector",
+        "web_retrieval": "web",
+        "financial_retrieval": "financial",
     }
 
     def run_agent():
@@ -458,55 +470,54 @@ async def _run_real_agent(
                         {"entities": entities},
                     )
 
-                elif node_name == "retriever":
-                    graph_results = state.get("graph_results", [])
-                    vector_results = state.get("vector_results", [])
-                    web_results = state.get("web_results", [])
-                    financial_results = state.get("financial_results", [])
+                elif node_name in retrieval_nodes:
+                    # Parallel fan-out: each retrieval node streams its own
+                    # delta (state here is the node's update, not full state)
+                    source = retrieval_nodes[node_name]
+                    results = state.get(f"{source}_results", [])
 
-                    if graph_results:
+                    if results:
                         yield await _emit_retrieval(
                             session_id,
-                            "graph",
+                            source,
                             query,
-                            len(graph_results),
-                            graph_results[:3],
+                            len(results),
+                            results[:3],
                         )
 
-                    if vector_results:
-                        yield await _emit_retrieval(
-                            session_id,
-                            "vector",
-                            query,
-                            len(vector_results),
-                            vector_results[:3],
-                        )
-
-                    if web_results:
-                        yield await _emit_retrieval(
-                            session_id,
-                            "web",
-                            query,
-                            len(web_results),
-                            web_results[:3],
-                        )
-
-                    if financial_results:
-                        yield await _emit_retrieval(
-                            session_id,
-                            "financial",
-                            query,
-                            len(financial_results),
-                            financial_results[:3],
-                        )
-
-                    total = len(graph_results) + len(vector_results) + len(web_results) + len(financial_results)
                     yield await _emit_node_event(
                         session_id,
                         node,
                         "complete",
-                        f"Retrieved {total} results (graph={len(graph_results)}, vector={len(vector_results)}, web={len(web_results)}, financial={len(financial_results)})",
+                        f"{source.capitalize()} retrieval returned {len(results)} results",
                     )
+
+                elif node_name == "reranker":
+                    reranked = state.get("reranked_results", [])
+                    if reranked:
+                        top = reranked[0]
+                        top_score = top.get("rerank_score")
+                        score_str = f"{top_score:.3f}" if top_score is not None else "n/a"
+                        yield await _emit_node_event(
+                            session_id,
+                            node,
+                            "complete",
+                            f"Cross-encoder reranked {len(reranked)} results (top: {score_str})",
+                            {
+                                "reranked_preview": [
+                                    {
+                                        "source_type": c.get("source_type"),
+                                        "rerank_score": c.get("rerank_score"),
+                                        "text": c.get("text", "")[:150],
+                                    }
+                                    for c in reranked[:5]
+                                ]
+                            },
+                        )
+                    else:
+                        yield await _emit_node_event(
+                            session_id, node, "complete", "Merged retrieval results"
+                        )
 
                 elif node_name == "analyzer":
                     insights = state.get("insights", [])

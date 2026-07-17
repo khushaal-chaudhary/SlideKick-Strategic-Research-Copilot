@@ -242,6 +242,19 @@ def analyzer_node(state: ResearchState) -> dict[str, Any]:
 
     llm = get_llm(temperature=0.3)  # Slightly creative for synthesis
 
+    # Prefer the cross-encoder's ranked view: per source, keep the results
+    # that survived reranking, in rank order. Sources absent from the
+    # reranked top-N were outranked and are pruned from the prompt.
+    reranked = state.get("reranked_results", [])
+    if reranked:
+        graph_results = [c["result"] for c in reranked if c.get("source_type") == "graph"]
+        vector_results = [c["result"] for c in reranked if c.get("source_type") == "vector"]
+        web_results = [c["result"] for c in reranked if c.get("source_type") == "web"]
+        logger.info(
+            "   🎯 Using reranked context (graph=%d, vector=%d, web=%d)",
+            len(graph_results), len(vector_results), len(web_results),
+        )
+
     # Build the analysis prompt
     prompt = ANALYZER_PROMPT.format(
         query=query,
