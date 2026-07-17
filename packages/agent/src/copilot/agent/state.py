@@ -125,6 +125,7 @@ class ResearchState(TypedDict, total=False):
     # Query Understanding
     # -------------------------------------------------------------------------
     original_query: str               # The user's original question
+    workspace_id: str | None          # BYOD namespace: retrieval includes this workspace's docs
     query_type: str                   # QueryType value
     entities_of_interest: list[str]   # Extracted entities to focus on (full names for graph)
     stock_symbols: list[str]          # Stock ticker symbols for financial API (MSFT, AAPL)
@@ -189,13 +190,16 @@ class ResearchState(TypedDict, total=False):
 # State Factory Functions
 # =============================================================================
 
-def create_initial_state(query: str, max_iterations: int = 3) -> ResearchState:
+def create_initial_state(
+    query: str, max_iterations: int = 3, workspace_id: str | None = None
+) -> ResearchState:
     """
     Create the initial state for a new research query.
 
     Args:
         query: The user's research question
         max_iterations: Maximum research loops allowed
+        workspace_id: Optional BYOD namespace to include in retrieval
 
     Returns:
         Initial ResearchState ready for processing
@@ -203,6 +207,7 @@ def create_initial_state(query: str, max_iterations: int = 3) -> ResearchState:
     return ResearchState(
         messages=[],
         original_query=query,
+        workspace_id=workspace_id,
         query_type=QueryType.UNKNOWN.value,
         entities_of_interest=[],
         stock_symbols=[],

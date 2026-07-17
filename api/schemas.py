@@ -94,6 +94,11 @@ class QueryRequest(BaseModel):
         default=LLMProvider.OLLAMA,
         description="LLM provider to use (ollama=local/free, groq=fast/rate-limited)",
     )
+    workspace_id: str | None = Field(
+        default=None,
+        max_length=64,
+        description="BYOD workspace id — include this workspace's uploaded documents in retrieval",
+    )
 
 
 # =============================================================================
@@ -224,6 +229,7 @@ class SessionState(BaseModel):
     session_id: str
     query: str
     llm_provider: LLMProvider = LLMProvider.OLLAMA
+    workspace_id: str | None = None
     status: str = "pending"  # pending, processing, completed, error
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

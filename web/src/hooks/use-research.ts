@@ -57,7 +57,11 @@ export function useResearch() {
   );
 
   const submitQuery = useCallback(
-    async (query: string, llmProvider: LLMProvider = "ollama") => {
+    async (
+      query: string,
+      llmProvider: LLMProvider = "ollama",
+      workspaceId?: string | null
+    ) => {
       // Reset state
       setState({
         isLoading: true,
@@ -79,7 +83,11 @@ export function useResearch() {
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ query, llm_provider: llmProvider }),
+            body: JSON.stringify({
+              query,
+              llm_provider: llmProvider,
+              ...(workspaceId ? { workspace_id: workspaceId } : {}),
+            }),
           }
         );
 

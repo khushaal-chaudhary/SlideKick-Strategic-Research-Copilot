@@ -124,11 +124,6 @@ export const FUTURE_ITERATIONS = [
     status: "planned",
   },
   {
-    title: "BYOD (Bring Your Own Docs)",
-    description: "Upload your docs, we'll build the knowledge graph",
-    status: "planned",
-  },
-  {
     title: "Memory Mode",
     description: "Follow-up questions that actually remember context",
     status: "planned",
@@ -149,6 +144,7 @@ export const API_CONFIG = {
   baseUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:7860",
   streamEndpoint: "/api/stream",
   queryEndpoint: "/api/query",
+  documentsEndpoint: "/api/documents",
   healthEndpoint: "/health",
 } as const;
 

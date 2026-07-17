@@ -27,13 +27,16 @@ logger = logging.getLogger(__name__)
 # Data Source Functions (Tools)
 # =============================================================================
 
-def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
+def _query_graph(query: str, entities: list[str], namespace: str | None = None) -> dict[str, Any]:
     """
     Query the Neo4j knowledge graph.
 
     Args:
         query: Search query
         entities: Specific entities to focus on
+        namespace: Optional BYOD workspace id — includes that workspace's
+            namespaced nodes alongside the demo corpus. When None, only the
+            demo corpus (namespace IS NULL) is searched.
 
     Returns:
         Dict with source, results, count, and confidence
@@ -50,33 +53,44 @@ def _query_graph(query: str, entities: list[str]) -> dict[str, Any]:
 
     results = []
 
+    # `n.namespace = $ns` evaluates to null (falsy) when $ns is null,
+    # so a single expression covers both the demo-only and BYOD cases.
+    # Text chunks are excluded here — they belong to vector search.
+    ns_filter = (
+        "(n.namespace IS NULL OR n.namespace = $ns) "
+        "AND NOT n:DocumentChunk AND NOT n:UserChunk"
+    )
+
     try:
         # Strategy 1: Search by entities if we have them
         if entities:
             for entity in entities[:5]:  # Limit to avoid overquerying
-                cypher = """
+                cypher = f"""
                     MATCH (n)-[r]-(m)
-                    WHERE toLower(n.id) CONTAINS toLower($entity)
-                    RETURN n.id AS source, type(r) AS relationship,
-                           m.id AS target, labels(n) AS source_type, labels(m) AS target_type
+                    WHERE toLower(coalesce(n.name, n.id)) CONTAINS toLower($entity)
+                      AND {ns_filter}
+                    RETURN coalesce(n.name, n.id) AS source, type(r) AS relationship,
+                           coalesce(m.name, m.id) AS target,
+                           labels(n) AS source_type, labels(m) AS target_type
                     LIMIT 20
                 """
-                entity_results = _run_cypher(cypher, {"entity": entity})
+                entity_results = _run_cypher(cypher, {"entity": entity, "ns": namespace})
                 results.extend(entity_results)
 
         # Strategy 2: General search with key terms from query
-        cypher = """
+        cypher = f"""
             MATCH (n)
-            WHERE toLower(n.id) CONTAINS toLower($search)
+            WHERE toLower(coalesce(n.name, n.id)) CONTAINS toLower($search)
+              AND {ns_filter}
             OPTIONAL MATCH (n)-[r]-(m)
-            RETURN n.id AS entity, labels(n) AS types,
-                   collect(DISTINCT {rel: type(r), target: m.id})[..5] AS relationships
+            RETURN coalesce(n.name, n.id) AS entity, labels(n) AS types,
+                   collect(DISTINCT {{rel: type(r), target: coalesce(m.name, m.id)}})[..5] AS relationships
             LIMIT 30
         """
         search_terms = query.lower().split()[:3]
         for term in search_terms:
             if len(term) > 3:
-                query_results = _run_cypher(cypher, {"search": term})
+                query_results = _run_cypher(cypher, {"search": term, "ns": namespace})
                 results.extend(query_results)
 
         # Deduplicate
@@ -220,16 +234,19 @@ def _query_web_tavily(query: str, max_results: int = 5) -> dict[str, Any]:
         }
 
 
-def _query_vector(query: str, top_k: int = 5) -> dict[str, Any]:
+def _query_vector(query: str, top_k: int = 5, namespace: str | None = None) -> dict[str, Any]:
     """
     Query vector embeddings for semantic similarity search.
 
     Uses Ollama embeddings (nomic-embed-text) + Neo4j vector index
-    to find semantically similar document chunks.
+    to find semantically similar document chunks. When a BYOD namespace
+    is given, the user's uploaded chunks (user_doc_embeddings index) are
+    searched too and merged with the demo corpus by score.
 
     Args:
         query: Search query
         top_k: Number of results to return
+        namespace: Optional BYOD workspace id
 
     Returns:
         Dict with source, results (text passages), count, confidence
@@ -263,6 +280,35 @@ def _query_vector(query: str, top_k: int = 5) -> dict[str, Any]:
             "embedding": query_embedding,
             "top_k": top_k,
         })
+
+        if namespace:
+            try:
+                # Over-fetch: the index is shared by all workspaces and can't
+                # pre-filter, so grab extra and filter to this namespace
+                user_results = graph_connection.query(
+                    """
+                    CALL db.index.vector.queryNodes('user_doc_embeddings', $top_k, $embedding)
+                    YIELD node, score
+                    WHERE node.namespace = $ns
+                    RETURN
+                        node.id AS chunk_id,
+                        node.text AS text,
+                        node.source AS source,
+                        score
+                    ORDER BY score DESC
+                    """,
+                    params={
+                        "embedding": query_embedding,
+                        "top_k": top_k * 4,
+                        "ns": namespace,
+                    },
+                )
+                results = sorted(
+                    results + user_results, key=lambda r: r.get("score", 0.0), reverse=True
+                )[:top_k]
+            except Exception as e:
+                # Index doesn't exist until the first upload completes
+                logger.info("   🔮 No user document index available: %s", str(e)[:100])
 
         # Format results
         formatted = []
@@ -515,6 +561,7 @@ def retriever_node(state: ResearchState) -> dict[str, Any]:
     entities = state.get("entities_of_interest", [])
     iteration = state.get("iteration", 1)
     retrieval_strategy = state.get("retrieval_strategy", RetrievalStrategy.HYBRID.value)
+    workspace_id = state.get("workspace_id")
 
     # What did the critic request?
     refinement_type = state.get("refinement_type", RefinementType.NONE.value)
@@ -556,7 +603,7 @@ def retriever_node(state: ResearchState) -> dict[str, Any]:
         search_query = refinement_focus if refinement_focus else query
         logger.info("   📡 Critic requested VECTOR_SEARCH")
 
-        result = _query_vector(search_query)
+        result = _query_vector(search_query, namespace=workspace_id)
         vector_results.extend(result["results"])
         all_retrievals.append(result)
 
@@ -567,7 +614,7 @@ def retriever_node(state: ResearchState) -> dict[str, Any]:
 
         # Use refinement focus as additional entity
         additional_entities = [refinement_focus] if refinement_focus else []
-        result = _query_graph(search_query, entities + additional_entities)
+        result = _query_graph(search_query, entities + additional_entities, namespace=workspace_id)
         graph_results.extend(result["results"])
         all_retrievals.append(result)
 
@@ -604,14 +651,14 @@ def retriever_node(state: ResearchState) -> dict[str, Any]:
                 all_retrievals.append(result)
             else:
                 logger.warning("   ⚠️ No stock symbols, falling back to graph")
-                result = _query_graph(query, entities)
+                result = _query_graph(query, entities, namespace=workspace_id)
                 graph_results.extend(result["results"])
                 all_retrievals.append(result)
         else:
             # Default: query knowledge graph
             logger.info("   📚 Default: Querying knowledge graph")
 
-            result = _query_graph(query, entities)
+            result = _query_graph(query, entities, namespace=workspace_id)
             graph_results.extend(result["results"])
             all_retrievals.append(result)
 

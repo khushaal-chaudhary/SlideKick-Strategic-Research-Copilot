@@ -244,6 +244,7 @@ class ResearchCopilot:
         self,
         query: str,
         thread_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> dict:
         """
         Run a research query.
@@ -251,6 +252,7 @@ class ResearchCopilot:
         Args:
             query: The research question
             thread_id: Optional thread ID for conversation memory
+            workspace_id: Optional BYOD namespace to include in retrieval
 
         Returns:
             Final state dictionary with response
@@ -260,6 +262,7 @@ class ResearchCopilot:
         initial_state = create_initial_state(
             query=query,
             max_iterations=self._config.get("max_iterations", 3),
+            workspace_id=workspace_id,
         )
 
         config = {}
@@ -288,7 +291,7 @@ class ResearchCopilot:
         result = self.research(query)
         return result.get("final_response", "No response generated.")
 
-    def stream(self, query: str, thread_id: str | None = None):
+    def stream(self, query: str, thread_id: str | None = None, workspace_id: str | None = None):
         """
         Stream the research execution.
 
@@ -297,6 +300,7 @@ class ResearchCopilot:
         Args:
             query: The research question
             thread_id: Optional thread ID
+            workspace_id: Optional BYOD namespace to include in retrieval
 
         Yields:
             State updates from each node
@@ -306,6 +310,7 @@ class ResearchCopilot:
         initial_state = create_initial_state(
             query=query,
             max_iterations=self._config.get("max_iterations", 3),
+            workspace_id=workspace_id,
         )
 
         config = {}

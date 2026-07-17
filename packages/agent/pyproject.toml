@@ -35,6 +35,8 @@ dependencies = [
     
     # Document processing
     "langchain-text-splitters>=0.3.0",
+    "langchain-experimental>=0.3.0",   # LLMGraphTransformer (BYOD extraction)
+    "pypdf>=5.0.0",
     
     # Data validation
     "pydantic>=2.0.0",

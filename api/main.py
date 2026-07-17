@@ -85,6 +85,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# BYOD document upload endpoints
+from documents import router as documents_router  # noqa: E402
+
+app.include_router(documents_router)
+
+
+@app.on_event("startup")
+async def _purge_expired_byod_data():
+    """Free Aura node budget: drop BYOD workspaces older than 24h."""
+    if not AGENT_AVAILABLE:
+        return
+
+    def purge():
+        try:
+            from copilot.ingestion import purge_expired_workspaces
+
+            purge_expired_workspaces(ttl_hours=24)
+        except Exception as e:
+            logger.warning(f"BYOD TTL purge failed (non-fatal): {e}")
+
+    threading.Thread(target=purge, daemon=True).start()
+
+
 # =============================================================================
 # In-Memory Session Store (for demo - use Redis in production)
 # =============================================================================
@@ -196,6 +219,7 @@ async def submit_query(request: QueryRequest):
         session_id=session_id,
         query=request.query,
         llm_provider=request.llm_provider,
+        workspace_id=request.workspace_id,
         status="pending",
     )
     with sessions_lock:
@@ -249,7 +273,10 @@ async def stream_events(session_id: str):
             # =================================================================
             if AGENT_AVAILABLE:
                 async for event in _run_real_agent(
-                    session_id, session.query, session.llm_provider.value
+                    session_id,
+                    session.query,
+                    session.llm_provider.value,
+                    workspace_id=session.workspace_id,
                 ):
                     yield event
             else:
@@ -322,7 +349,12 @@ async def stream_events(session_id: str):
 # =============================================================================
 
 
-async def _run_real_agent(session_id: str, query: str, llm_provider: str = "ollama") -> AsyncGenerator[dict, None]:
+async def _run_real_agent(
+    session_id: str,
+    query: str,
+    llm_provider: str = "ollama",
+    workspace_id: str | None = None,
+) -> AsyncGenerator[dict, None]:
     """
     Run the real LangGraph agent and yield SSE events in real-time.
 
@@ -332,6 +364,7 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
         session_id: Unique session identifier
         query: The research question
         llm_provider: LLM provider to use ("ollama" or "groq")
+        workspace_id: Optional BYOD workspace whose documents join retrieval
     """
     with sessions_lock:
         session = sessions[session_id]
@@ -357,7 +390,7 @@ async def _run_real_agent(session_id: str, query: str, llm_provider: str = "olla
             copilot = create_copilot()
             copilot.configure(max_iterations=settings.max_iterations)
 
-            for event in copilot.stream(query, thread_id=session_id):
+            for event in copilot.stream(query, thread_id=session_id, workspace_id=workspace_id):
                 event_queue.put(("event", event))
 
             event_queue.put(("done", None))

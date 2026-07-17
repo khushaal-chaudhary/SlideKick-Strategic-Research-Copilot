@@ -3,6 +3,7 @@
 import { Header } from "@/components/header";
 import { Hero } from "@/components/hero";
 import { QueryInput } from "@/components/query-input";
+import { DocumentUpload } from "@/components/document-upload";
 import { LogViewer } from "@/components/log-viewer";
 import { ResponseViewer } from "@/components/response-viewer";
 import { PresentationViewer } from "@/components/presentation-viewer";
@@ -11,7 +12,10 @@ import { FutureIterations } from "@/components/future-iterations";
 import { Footer } from "@/components/footer";
 import { ErrorBanner } from "@/components/error-banner";
 import { useResearch } from "@/hooks/use-research";
+import { useIngestion } from "@/hooks/use-ingestion";
+import { getWorkspaceId } from "@/lib/workspace";
 import { motion } from "framer-motion";
+import type { LLMProvider } from "@/hooks/use-research";
 
 export default function Home() {
   const {
@@ -26,6 +30,12 @@ export default function Home() {
     clearError,
   } = useResearch();
 
+  const ingestion = useIngestion();
+
+  const handleSubmit = (query: string, provider: LLMProvider) => {
+    submitQuery(query, provider, ingestion.hasDocuments ? getWorkspaceId() : null);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
@@ -37,7 +47,10 @@ export default function Home() {
         {/* Research Interface */}
         <section className="py-8 sm:py-12 border-t border-border/40">
           <div className="container">
-            <QueryInput onSubmit={submitQuery} isLoading={isLoading} />
+            <QueryInput onSubmit={handleSubmit} isLoading={isLoading} />
+
+            {/* BYOD upload */}
+            <DocumentUpload ingestion={ingestion} disabled={isLoading} />
 
             {/* Error Banner */}
             {error && (
