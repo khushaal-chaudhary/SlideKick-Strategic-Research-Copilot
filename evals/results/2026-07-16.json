@@ -1,0 +1,53 @@
+{
+  "run_date": "2026-07-16",
+  "timestamp": "2026-07-16T11:38:12.026332+00:00",
+  "judge_model": "groq/openai/gpt-oss-120b",
+  "agent_provider": "groq",
+  "n_queries": 2,
+  "n_scored": 1,
+  "n_errors": 1,
+  "aggregate": {
+    "faithfulness": 0.0526,
+    "context_precision": 1.0,
+    "fact_recall": 1.0,
+    "answer_quality": 0.98,
+    "critic_calibration_pearson": null,
+    "avg_agent_self_score": 0.8,
+    "avg_iterations": 1.0,
+    "avg_latency_s": 31.5
+  },
+  "per_query": [
+    {
+      "id": "q01",
+      "query": "Who is the CEO of Microsoft?",
+      "query_type": "factual",
+      "answer_preview": "The current CEO of Microsoft is Satya Nadella. This information is based on our analysis of the Knowledge Graph data, with a confidence level of 90%. Our key insight is that Microsoft has a stable leadership structure under Nadella's direction.\n\nWhile our analysis provides a clear answer to your query, it's worth noting that we lack additional context about Nadella's leadership style, tenure, and ",
+      "scores": {
+        "faithfulness": 0.05263157894736842,
+        "context_precision": 0.9999999999,
+        "fact_recall": 1.0,
+        "answer_quality": 0.98,
+        "quality_dimensions": {
+          "relevance": 1.0,
+          "completeness": 1.0,
+          "specificity": 1.0,
+          "coherence": 0.9
+        }
+      },
+      "agent": {
+        "self_quality_score": 0.8,
+        "iterations": 1,
+        "retrieval_strategy": "graph_only",
+        "output_format": "chat",
+        "n_contexts": 1
+      },
+      "judge_reasoning": "The answer directly names Satya Nadella as CEO, fully satisfies the query, provides concrete detail, and is readable though slightly verbose and repetitive.",
+      "latency_s": 31.5
+    },
+    {
+      "id": "q02",
+      "query": "What is Microsoft's corporate mission?",
+      "error": "Error code: 429 - {'error': {'message': 'Rate limit reached for model `llama-3.3-70b-versatile` in organization `org_01kcvte272f0jaxfvaxxyqn1zq` service tier `on_demand` on tokens per day (TPD): Limit 100000, Used 99701, Requested 1163. Please try again in 12m26.496s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}"
+    }
+  ]
+}

@@ -11,6 +11,7 @@ Usage:
     python evals/run_evals.py                # full dataset
     python evals/run_evals.py --subset 5     # first 5 queries
     python evals/run_evals.py --sleep 20     # extra Groq rate-limit headroom
+    python evals/run_evals.py --start 9      # resume at q09, merging prior scores
 
 Requires: NEO4J_URI/NEO4J_PASSWORD, GROQ_API_KEY, GOOGLE_API_KEY, TAVILY_API_KEY.
 Writes evals/results/<date>.json and evals/results/latest.json.
@@ -53,10 +54,19 @@ def load_dataset(path: Path, subset: int | None) -> list[dict]:
     return rows[:subset] if subset else rows
 
 
+# Judge-token budget: ragas context_precision makes one LLM call PER context,
+# so uncapped context lists (30+) burn ~25k judge tokens per query and blow
+# the Groq 200k TPD before the dataset finishes. Cap per source and clip.
+MAX_GRAPH_CONTEXTS = 8
+MAX_VECTOR_CONTEXTS = 4
+MAX_WEB_CONTEXTS = 3
+MAX_FINANCIAL_CONTEXTS = 2
+
+
 def flatten_contexts(state: dict) -> list[str]:
     """Flatten the agent's heterogeneous retrieval results into ragas contexts."""
     contexts: list[str] = []
-    for r in state.get("graph_results", []):
+    for r in state.get("graph_results", [])[:MAX_GRAPH_CONTEXTS]:
         if "entity" in r:
             contexts.append(f"Graph entity: {r['entity']} (types: {r.get('types', [])})")
         elif "source" in r:
@@ -64,18 +74,18 @@ def flatten_contexts(state: dict) -> list[str]:
                 f"Graph relationship: {r['source']} --[{r.get('relationship', '')}]--> {r.get('target', '')}"
             )
         else:
-            contexts.append(json.dumps(r, default=str)[:500])
-    for r in state.get("vector_results", []):
+            contexts.append(json.dumps(r, default=str)[:300])
+    for r in state.get("vector_results", [])[:MAX_VECTOR_CONTEXTS]:
         text = r.get("text", "")
         if text:
-            contexts.append(f"Document chunk ({r.get('source', 'unknown')}): {text[:800]}")
-    for r in state.get("web_results", []):
+            contexts.append(f"Document chunk ({r.get('source', 'unknown')}): {text[:600]}")
+    for r in state.get("web_results", [])[:MAX_WEB_CONTEXTS]:
         snippet = f"{r.get('title', '')}: {r.get('snippet', r.get('content', ''))}"
-        contexts.append(f"Web result: {snippet[:800]}")
+        contexts.append(f"Web result: {snippet[:500]}")
     if state.get("web_ai_answer"):
-        contexts.append(f"Web AI summary: {state['web_ai_answer'][:1500]}")
-    for r in state.get("financial_results", []):
-        contexts.append(f"Financial data: {json.dumps(r, default=str)[:800]}")
+        contexts.append(f"Web AI summary: {state['web_ai_answer'][:800]}")
+    for r in state.get("financial_results", [])[:MAX_FINANCIAL_CONTEXTS]:
+        contexts.append(f"Financial data: {json.dumps(r, default=str)[:400]}")
     return contexts or ["(no retrieved context)"]
 
 
@@ -107,17 +117,38 @@ def mean(values: list) -> float | None:
     return round(sum(vals) / len(vals), 4) if vals else None
 
 
-def run(dataset_path: Path, subset: int | None, sleep_s: float) -> dict:
+def load_prior_results(start: int) -> dict[str, dict]:
+    """For --start resumes, reuse scored per-query entries from the last run."""
+    if start <= 1:
+        return {}
+    latest = RESULTS_DIR / "latest.json"
+    if not latest.exists():
+        logger.warning("--start %d but no latest.json to merge from", start)
+        return {}
+    prior = json.loads(latest.read_text(encoding="utf-8"))
+    return {q["id"]: q for q in prior.get("per_query", []) if "scores" in q}
+
+
+def run(dataset_path: Path, subset: int | None, sleep_s: float, start: int = 1) -> dict:
     from copilot.agent import create_copilot
 
     rows = load_dataset(dataset_path, subset)
-    logger.info("Running %d eval queries", len(rows))
+    prior_by_id = load_prior_results(start)
+    logger.info("Running %d eval queries (start=%d)", len(rows), start)
 
     copilot = create_copilot()
     judge_llm = get_judge_llm()
 
     per_query = []
     for i, row in enumerate(rows, 1):
+        if i < start:
+            reused = prior_by_id.get(row["id"])
+            if reused:
+                per_query.append(reused)
+                logger.info("[%d/%d] reusing prior result for %s", i, len(rows), row["id"])
+            else:
+                logger.warning("[%d/%d] no prior scored result for %s; skipping", i, len(rows), row["id"])
+            continue
         logger.info("[%d/%d] %s", i, len(rows), row["query"])
         started = time.time()
         try:
@@ -203,13 +234,19 @@ def main():
     parser.add_argument("--subset", type=int, default=None, help="Run only the first N queries")
     parser.add_argument("--sleep", type=float, default=15.0, help="Seconds between queries")
     parser.add_argument(
+        "--start",
+        type=int,
+        default=1,
+        help="Resume from query N (1-based); earlier queries reuse scores from latest.json",
+    )
+    parser.add_argument(
         "--dataset",
         type=Path,
         default=Path(__file__).resolve().parent / "golden_dataset.jsonl",
     )
     args = parser.parse_args()
 
-    results = run(args.dataset, args.subset, args.sleep)
+    results = run(args.dataset, args.subset, args.sleep, args.start)
 
     RESULTS_DIR.mkdir(exist_ok=True)
     dated = RESULTS_DIR / f"{results['run_date']}.json"
