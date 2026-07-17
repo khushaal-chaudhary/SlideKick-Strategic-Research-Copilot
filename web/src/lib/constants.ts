@@ -3,6 +3,9 @@
  * SlideKick - Research that kicks!
  */
 
+// Flip to false (and redeploy) once backend secrets/deployment are finalized
+export const MAINTENANCE_MODE = true;
+
 export const SITE_CONFIG = {
   name: "SlideKick",
   tagline: "No more sideways glances at empty decks",
