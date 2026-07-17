@@ -11,11 +11,22 @@ app_port: 7860
 
 # SlideKick
 
-An AI research copilot that searches knowledge graphs, fetches live data, self-critiques until confident, and delivers insights as chat responses or downloadable presentations.
+An AI research copilot that fans out across a knowledge graph, vector search, web search, and financial APIs in parallel, reranks and self-critiques the results until confident, then streams the answer token-by-token — or hands you a downloadable slide deck. Every answer is scored by an automated eval harness whose results are public.
 
 **Created by [Khushaal Chaudhary](https://khushaalchaudhary.com)** | [LinkedIn](https://linkedin.com/in/khushaal-chaudhary) | [GitHub](https://github.com/khushaal-chaudhary)
 
-**Live Demo:** [HuggingFace Spaces](https://huggingface.co/spaces/khushaal/slidekick)
+**Live Demo:** [HuggingFace Spaces](https://huggingface.co/spaces/khushaal/slidekick) · **Quality Metrics:** `/metrics` on the demo · **Tech Wiki:** `/wiki` on the demo (every design decision, explained)
+
+---
+
+## Highlights
+
+- **Self-correcting agent** — a Critic node scores each research pass; below threshold, it loops back with a targeted refinement (more graph, more web, or financial data) instead of answering badly.
+- **Parallel retrieval fan-out** — LangGraph `Send` dispatches graph, vector, web, and financial retrieval concurrently; a cross-encoder reranks the merged evidence before analysis.
+- **Public eval harness** — ragas metrics (faithfulness, answer relevancy, context precision) plus custom judges, including *critic calibration* (does the agent's self-assessed quality track an external judge?). Results are committed to the repo, served by the API, and rendered on the `/metrics` dashboard.
+- **Bring your own documents** — upload a PDF or text file and query it alongside the demo corpus. User data is namespaced in the same Neo4j instance and auto-purged after 24 h.
+- **Token-level streaming** — the final answer streams word-by-word over SSE while the agent's internal events (node transitions, retrievals, critic decisions) stream in parallel.
+- **Runs entirely on free tiers** — Groq + Gemini + Neo4j Aura free + HF Spaces CPU + Vercel. The Tech Wiki documents every tradeoff that made this possible.
 
 ---
 
@@ -25,18 +36,19 @@ An AI research copilot that searches knowledge graphs, fetches live data, self-c
 2. [Features](#features)
 3. [Architecture](#architecture)
 4. [Agent Nodes Explained](#agent-nodes-explained)
-5. [Project Structure](#project-structure)
-6. [Installation](#installation)
-7. [Configuration](#configuration)
-8. [Usage](#usage)
-9. [API Reference](#api-reference)
-10. [Output Formats](#output-formats)
-11. [Adding Your Own Data](#adding-your-own-data)
-12. [Deployment](#deployment)
-13. [Troubleshooting](#troubleshooting)
-14. [Development](#development)
-15. [Tech Stack](#tech-stack)
-16. [License](#license)
+5. [Evaluation](#evaluation)
+6. [Project Structure](#project-structure)
+7. [Installation](#installation)
+8. [Configuration](#configuration)
+9. [Usage](#usage)
+10. [API Reference](#api-reference)
+11. [Output Formats](#output-formats)
+12. [Adding Your Own Data](#adding-your-own-data)
+13. [Deployment](#deployment)
+14. [Troubleshooting](#troubleshooting)
+15. [Development](#development)
+16. [Tech Stack](#tech-stack)
+17. [License](#license)
 
 ---
 
@@ -44,14 +56,15 @@ An AI research copilot that searches knowledge graphs, fetches live data, self-c
 
 SlideKick takes your research question and processes it through a multi-step AI pipeline:
 
-1. **Planner** - Analyzes your question and creates a research plan
-2. **Retriever** - Gathers data from knowledge graph, web search, and financial APIs
-3. **Analyzer** - Finds patterns and generates insights from the data
-4. **Critic** - Evaluates quality and decides if more research is needed
-5. **Generator** - Creates the final output (chat response or slides)
-6. **Responder** - Formats and delivers the response
+1. **Planner** — analyzes your question, extracts entities, and picks a retrieval strategy
+2. **Retrieval fan-out** — graph, vector, web, and financial retrieval run **in parallel**
+3. **Reranker** — a cross-encoder re-scores the merged evidence for relevance
+4. **Analyzer** — finds patterns and generates insights from the data
+5. **Critic** — scores quality and decides if more research is needed
+6. **Generator** — creates the final output (chat response or slides), streamed token-by-token
+7. **Responder** — formats and delivers the response
 
-The key difference from simple RAG: SlideKick **loops back** if the quality isn't good enough. The Critic node evaluates the research and can send it back to the Retriever for more data.
+The key difference from simple RAG: SlideKick **loops back** if the quality isn't good enough. The Critic node evaluates the research and can send it back for another targeted retrieval pass.
 
 ### Example Flow
 
@@ -59,12 +72,14 @@ The key difference from simple RAG: SlideKick **loops back** if the quality isn'
 You: "How is Microsoft positioned against Google in AI?"
 
 Planner    → Identified entities: Microsoft, Google, AI
-           → Strategy: Graph first, then web search
+           → Strategy: hybrid (graph + vector + web)
            → Query type: Strategic (will generate slides)
 
-Retriever  → Graph search: Found 23 Microsoft AI entities
-           → Graph search: Found 8 Google AI entities
-           → Web search: Found 12 recent articles
+Retrieval  → Graph search: Found 23 Microsoft AI entities   ┐
+           → Vector search: Found 12 relevant chunks        ├─ in parallel
+           → Web search: Found 12 recent articles           ┘
+
+Reranker   → Cross-encoder re-scored 47 results, kept top evidence
 
 Analyzer   → Insight 1: Microsoft leads in enterprise AI integration
            → Insight 2: Google dominates AI research publications
@@ -74,15 +89,14 @@ Critic     → Quality score: 0.72 (below 0.8 threshold)
            → Gap: Missing recent partnership data
            → Decision: Loop back for more web search
 
-Retriever  → Additional web search: Found 8 partnership articles
+Retrieval  → Additional web search: Found 8 partnership articles
 
 Critic     → Quality score: 0.89 (above threshold)
            → Decision: Proceed to generation
 
-Generator  → Creating PowerPoint presentation...
-           → 6 slides generated
+Generator  → Streaming answer tokens... / Creating PowerPoint...
 
-Responder  → Presentation ready for download
+Responder  → Response delivered
 ```
 
 ---
@@ -91,7 +105,7 @@ Responder  → Presentation ready for download
 
 ### LLM Provider Toggle
 
-Switch between LLM providers from the web interface:
+Switch between LLM providers from the web interface. The choice travels **per-request through agent state** (not a global), so concurrent users can use different providers safely.
 
 | Provider | Speed | Rate Limits | Cost | Best For |
 |----------|-------|-------------|------|----------|
@@ -103,61 +117,48 @@ Switch between LLM providers from the web interface:
 - 14,400 requests per day
 - 6,000 tokens per minute (varies by model)
 
-When Groq hits a rate limit, SlideKick shows:
-- Which limit was hit (tokens/minute, requests/day, etc.)
-- How long to wait before retrying
-- Suggestion to switch to Ollama
+When Groq hits a rate limit, SlideKick shows which limit was hit, how long to wait, and suggests switching to Ollama.
 
 ### Data Sources
 
 **Knowledge Graph (Neo4j)**
-- Pre-loaded with Microsoft Shareholder Letters 2020-2024
-- Contains entities, relationships, and document chunks
-- Supports Cypher queries for structured data retrieval
+- Pre-loaded with Microsoft Shareholder Letters 2020–2024, modeled with schema.org types
+- Entities, relationships, and embedded document chunks (hybrid graph + vector retrieval)
+- Parameterized Cypher throughout, plus defense-in-depth input caps
 
 **Web Search (Tavily)**
-- Real-time web search for current information
-- AI-powered result summarization
-- Used when graph data is insufficient or outdated
+- Real-time web search for current information with AI-powered summarization
 
 **Financial API (Alpha Vantage)**
-- Stock quotes and price data
-- Company fundamentals (P/E, EPS, margins)
-- Income statements
-- News sentiment
+- Stock quotes, fundamentals (P/E, EPS, margins), income statements, news sentiment
 - Free tier: 25 requests per day
 
-### Output Formats
+**Your Documents (BYOD)**
+- Upload PDF/TXT from the UI; entities are extracted into the same schema.org graph under an isolated namespace — see [Adding Your Own Data](#adding-your-own-data)
 
-SlideKick automatically chooses the output format based on your question:
+### Cross-Encoder Reranking
 
-| Query Type | Example | Output |
-|------------|---------|--------|
-| **Strategic** | "How should we respond to competitor X?" | Slides |
-| **Comparative** | "Compare Microsoft vs Google AI strategy" | Slides |
-| **Financial** | "What is Apple's P/E ratio?" | Chat |
-| **Factual** | "When did Microsoft acquire OpenAI stake?" | Chat |
-| **Exploratory** | "What are the key themes in the 2024 letter?" | Chat |
+After the parallel fan-out, merged results are re-scored by `cross-encoder/ms-marco-MiniLM-L-6-v2` (runs on CPU, free). Rerank scores are emitted in the SSE stream so you can watch evidence being re-ordered live in the log viewer.
+
+### Real-time Streaming
+
+Two things stream simultaneously over one SSE connection:
+- **Agent events** — which node is active, what was retrieved, quality scores, critic decisions
+- **Answer tokens** — the final response renders word-by-word as the Generator produces it
+
+### Evaluation Dashboard
+
+The `/metrics` page renders the latest eval run: per-metric scores, run-over-run trends, and per-query drill-down. See [Evaluation](#evaluation).
 
 ### Slide Generation
 
 When slides are generated:
 1. First attempts Google Slides API (creates shareable link)
-2. If Google Slides unavailable, falls back to python-pptx
-3. PowerPoint file is available for download
+2. Falls back to python-pptx (downloadable .pptx)
 
-Slide content includes:
-- Title slide with query summary
-- 4-6 content slides with key findings
-- Each bullet point: 20-35 words with "Key Point: Explanation" format
+### Tech Wiki
 
-### Real-time Streaming
-
-The web interface shows live progress:
-- Which node is currently active
-- What data is being retrieved
-- Quality scores and decisions
-- Time elapsed for each step
+The `/wiki` page in the app answers ~25 questions about the design: why an agent instead of plain RAG, why schema.org, how BYOD namespacing works, what breaks at scale, and every free-tier tradeoff.
 
 ---
 
@@ -165,55 +166,57 @@ The web interface shows live progress:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                              WEB UI                                      │
-│                           (Next.js 15)                                   │
+│                              WEB UI (Next.js 15, Vercel)                 │
 │                                                                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                   │
-│  │ Query Input  │  │  Log Viewer  │  │   Response   │                   │
-│  │              │  │  (SSE stream)│  │    Viewer    │                   │
-│  └──────────────┘  └──────────────┘  └──────────────┘                   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────┐ ┌───────┐  │
+│  │ Query Input │ │  Log Viewer │ │  Response   │ │Metrics │ │ Wiki  │  │
+│  │  + upload   │ │ (SSE stream)│ │(token strm) │ │ (evals)│ │       │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └────────┘ └───────┘  │
 └─────────────────────────────────────────────────────────────────────────┘
                                    │
                                    │ HTTP POST + SSE
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                               API                                        │
-│                         (FastAPI + SSE)                                  │
+│                        API (FastAPI + SSE, HF Spaces)                    │
 │                                                                          │
-│  POST /api/query     → Submit research question                         │
-│  GET  /api/stream/:id → SSE stream of agent events                      │
-│  GET  /api/download/:file → Download generated presentations            │
+│  POST /api/query               → Submit research question               │
+│  GET  /api/stream/:id          → SSE: agent events + answer tokens      │
+│  POST /api/documents/upload    → BYOD ingestion (SSE progress)          │
+│  GET  /api/evals/latest        → Latest eval results                    │
+│  GET  /api/download/:file      → Download generated presentations       │
+│                                                                          │
+│  SQLite session snapshots (survive Space restarts)                      │
 └─────────────────────────────────────────────────────────────────────────┘
                                    │
-                                   │ Runs agent in thread
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                          LANGGRAPH AGENT                                 │
 │                                                                          │
-│   ┌──────────┐    ┌───────────┐    ┌──────────┐    ┌──────────┐        │
-│   │ Planner  │ ─▶ │ Retriever │ ─▶ │ Analyzer │ ─▶ │  Critic  │        │
-│   └──────────┘    └───────────┘    └──────────┘    └──────────┘        │
-│                          ▲                               │              │
-│                          │                               │              │
-│                          │    ┌──────────────────────────┘              │
-│                          │    │                                         │
-│                          │    ▼                                         │
-│                     ┌────────────┐                                      │
-│                     │ Quality OK? │                                      │
-│                     │  YES │ NO   │                                      │
-│                     └──────┴──────┘                                      │
-│                          │                                               │
-│                          │ YES                                           │
-│                          ▼                                               │
-│                   ┌───────────┐    ┌───────────┐                        │
-│                   │ Generator │ ─▶ │ Responder │                        │
-│                   └───────────┘    └───────────┘                        │
+│  ┌──────────┐        parallel fan-out (Send)                            │
+│  │ Planner  │ ─▶ ┌───────────┬───────────┬──────────┬───────────┐      │
+│  └──────────┘    │   Graph   │  Vector   │   Web    │ Financial │      │
+│                  │ retrieval │ retrieval │retrieval │ retrieval │      │
+│                  └─────┬─────┴─────┬─────┴────┬─────┴─────┬─────┘      │
+│                        └───────────┴────┬─────┴───────────┘            │
+│                                         ▼                               │
+│                                  ┌────────────┐                         │
+│                                  │  Reranker  │  cross-encoder          │
+│                                  └─────┬──────┘                         │
+│                                        ▼                                │
+│                  ┌──────────┐    ┌──────────┐                           │
+│              ┌── │  Critic  │ ◀─ │ Analyzer │                           │
+│              │   └────┬─────┘    └──────────┘                           │
+│   loop back  │        │ quality ≥ threshold                             │
+│   (refine)   │        ▼                                                 │
+│              │  ┌───────────┐    ┌───────────┐                          │
+│              └▶ │ Generator │ ─▶ │ Responder │                          │
+│    (to fan-out) └───────────┘    └───────────┘                          │
 └─────────────────────────────────────────────────────────────────────────┘
                     │              │              │
                     ▼              ▼              ▼
              ┌───────────┐  ┌───────────┐  ┌───────────┐
              │   Neo4j   │  │  Tavily   │  │   Alpha   │
-             │   Graph   │  │  Search   │  │  Vantage  │
+             │Graph+Vec  │  │  Search   │  │  Vantage  │
              └───────────┘  └───────────┘  └───────────┘
 ```
 
@@ -225,13 +228,9 @@ The web interface shows live progress:
 
 **File:** `packages/agent/src/copilot/agent/nodes/planner.py`
 
-**What it does:**
-- Analyzes the user's question
 - Classifies query type (factual, comparative, strategic, financial, exploratory)
-- Extracts entities of interest (company names, products, people)
-- Extracts stock symbols for financial queries (MSFT, AAPL, etc.)
-- Chooses retrieval strategy
-- Determines output format
+- Extracts entities of interest and stock symbols
+- Chooses retrieval strategy and output format
 
 **Retrieval Strategies:**
 | Strategy | When Used | Description |
@@ -242,80 +241,84 @@ The web interface shows live progress:
 | `web_only` | News, recent events | Skip graph, search web |
 | `financial_first` | Stock/company metrics | Start with Alpha Vantage API |
 
-### 2. Retriever
+### 2. Retrieval Fan-out
 
-**File:** `packages/agent/src/copilot/agent/nodes/retriever.py`
+**Files:** `packages/agent/src/copilot/agent/nodes/retrieval/{graph,vector,web,financial}.py`
 
-**What it does:**
-- Executes the retrieval strategy from the Planner
-- Queries Neo4j knowledge graph for entities and relationships
-- Performs web search via Tavily API
-- Fetches financial data from Alpha Vantage
-- Aggregates results from all sources
+The planner's strategy is dispatched via LangGraph `Send` — each selected source runs as its **own node, concurrently**. Result lists in state use `operator.add` reducers, so parallel branches merge automatically. When the Critic loops back, only the single source it needs is re-dispatched.
 
-**Data Sources:**
-| Source | Data Retrieved |
-|--------|----------------|
-| Neo4j Graph | Entities, relationships, document chunks |
-| Tavily Web | Current articles, news, AI-summarized results |
-| Alpha Vantage | Stock quotes, fundamentals, financials, news |
+| Node | Source | Data Retrieved |
+|------|--------|----------------|
+| `graph_retrieval` | Neo4j Cypher | Entities, relationships (namespace-filtered for BYOD) |
+| `vector_retrieval` | Neo4j vector indexes | Similar chunks from demo corpus + user docs |
+| `web_retrieval` | Tavily | Current articles, AI-summarized results |
+| `financial_retrieval` | Alpha Vantage | Quotes, fundamentals, financials, news |
 
-### 3. Analyzer
+### 3. Reranker
+
+**File:** `packages/agent/src/copilot/agent/nodes/retrieval/reranker.py`
+
+Re-scores all merged retrieval results against the query with `cross-encoder/ms-marco-MiniLM-L-6-v2`. Cheap (CPU-only), model-free-tier-independent, and measurably improves the evidence the Analyzer sees. Scores are surfaced in SSE events.
+
+### 4. Analyzer
 
 **File:** `packages/agent/src/copilot/agent/nodes/analyzer.py`
 
-**What it does:**
-- Synthesizes retrieved data into coherent insights
-- Identifies patterns and themes
-- Generates structured insights with confidence scores
-- Creates a synthesis narrative
+Synthesizes reranked data into structured insights with confidence scores. Categories: `strategic_theme`, `competitive_gap`, `investment_pattern`, `market_trend`, `risk_factor`.
 
-**Insight Categories:**
-- `strategic_theme` - High-level strategic direction
-- `competitive_gap` - Opportunity vs competitors
-- `investment_pattern` - Financial/investment focus
-- `market_trend` - Industry trend
-- `risk_factor` - Potential risk or challenge
-
-### 4. Critic
+### 5. Critic
 
 **File:** `packages/agent/src/copilot/agent/nodes/critic.py`
 
-**What it does:**
-- Evaluates the quality of current research
-- Assigns a quality score (0.0 to 1.0)
-- Identifies gaps in the analysis
-- Decides whether to loop back for more data
-- Suggests refinement type if needed
+Scores research quality (0.0–1.0, threshold 0.8), identifies gaps, and decides whether to loop back with a targeted refinement:
 
-**Quality Threshold:** 0.8 (configurable)
-
-**Refinement Types:**
 | Type | When Triggered | Action |
 |------|----------------|--------|
-| `web_search` | Missing current data | Search web for recent info |
-| `more_graph` | Need deeper entity data | Broader graph queries |
-| `financial_data` | Missing company metrics | Fetch from Alpha Vantage |
+| `web_search` | Missing current data | Re-dispatch web retrieval |
+| `more_graph` | Need deeper entity data | Re-dispatch graph retrieval |
+| `financial_data` | Missing company metrics | Re-dispatch financial retrieval |
 | `none` | Quality sufficient | Proceed to Generator |
 
-### 5. Generator
+The eval harness checks whether these self-scores actually correlate with an external judge — see [Evaluation](#evaluation).
+
+### 6. Generator
 
 **File:** `packages/agent/src/copilot/agent/nodes/generator.py`
 
-**What it does:**
-- Creates the final output based on output format
-- For chat: Generates markdown response
-- For slides: Creates presentation content, calls Google Slides API or python-pptx
-- Structures content appropriately for the format
+Creates the final output. Chat responses are **streamed token-by-token** to the client via LangGraph's `messages` stream mode. Slides go through Google Slides API or python-pptx.
 
-### 6. Responder
+### 7. Responder
 
 **File:** `packages/agent/src/copilot/agent/nodes/responder.py`
 
-**What it does:**
-- Formats the final response for the user
-- Adds metadata (quality score, sources used, iterations)
-- Prepares the response for streaming back to the frontend
+Formats the final response and attaches metadata (quality score, sources used, iterations).
+
+---
+
+## Evaluation
+
+Answer quality is measured, not asserted. The harness lives in `evals/` and its output is public.
+
+**Golden dataset** — `evals/golden_dataset.jsonl`: curated queries over the Microsoft corpus with expected facts and entities.
+
+**Metrics:**
+
+| Metric | Source | What it measures |
+|--------|--------|------------------|
+| Faithfulness | ragas | Is the answer grounded in retrieved context? |
+| Answer relevancy | ragas | Does the answer address the question? |
+| Context precision | ragas | Is the retrieved evidence actually relevant? |
+| Fact recall | custom judge | Are the expected facts present in the answer? |
+| **Critic calibration** | custom | Does the agent's own quality score correlate with an external judge's score? |
+
+Critic calibration is the distinctive one: a self-reflective agent whose confidence doesn't track reality is worse than no critic at all.
+
+**Judge model** — a different model family (Gemini flash by default, configurable via `EVAL_JUDGE_PROVIDER`) judges the answers, avoiding same-family self-preference bias.
+
+**How it runs:**
+- Locally: `python evals/run_evals.py [--subset n] [--start i] [--sleep s]` (sleeps between queries to respect free-tier quotas)
+- CI: `.github/workflows/evals.yml` — weekly cron + manual dispatch; commits updated results
+- Results: `evals/results/YYYY-MM-DD.json` + `latest.json`, served at `GET /api/evals/latest`, rendered on the **/metrics** dashboard with run-over-run trends and per-query drill-down
 
 ---
 
@@ -324,69 +327,79 @@ The web interface shows live progress:
 ```
 slidekick/
 │
-├── web/                                    # Next.js 15 Frontend
+├── web/                                    # Next.js 15 Frontend (Vercel)
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── page.tsx                    # Main page
-│   │   │   └── layout.tsx                  # Root layout
+│   │   │   ├── page.tsx                    # Main research page
+│   │   │   ├── metrics/                    # Eval dashboard
+│   │   │   └── wiki/                       # Tech decisions wiki
 │   │   ├── components/
 │   │   │   ├── query-input.tsx             # Search input with LLM toggle
+│   │   │   ├── document-upload.tsx         # BYOD dropzone + progress
 │   │   │   ├── log-viewer.tsx              # Real-time agent logs
-│   │   │   ├── response-viewer.tsx         # Response display + download
-│   │   │   ├── error-banner.tsx            # Rate limit error display
-│   │   │   ├── header.tsx                  # Navigation header
-│   │   │   ├── hero.tsx                    # Landing hero section
-│   │   │   ├── tech-stack.tsx              # Technology showcase
+│   │   │   ├── response-viewer.tsx         # Streaming response + download
+│   │   │   ├── eval-dashboard.tsx          # Metrics charts (recharts)
+│   │   │   ├── wiki-content.tsx            # Searchable Q&A wiki
 │   │   │   └── ui/                         # shadcn/ui components
 │   │   ├── hooks/
-│   │   │   └── use-research.ts             # SSE hook for streaming
-│   │   └── lib/
-│   │       └── constants.ts                # API URLs, config
-│   ├── package.json
-│   └── next.config.ts
+│   │   │   ├── use-research.ts             # SSE hook (events + tokens)
+│   │   │   └── use-ingestion.ts            # SSE hook for BYOD progress
+│   │   └── lib/constants.ts                # API URLs, config
+│   └── package.json
 │
 ├── api/                                    # FastAPI Backend (HF Spaces)
-│   ├── main.py                             # API endpoints, SSE streaming
+│   ├── main.py                             # Endpoints, SSE, token streaming
+│   ├── documents.py                        # BYOD upload/ingestion router
+│   ├── sessions.py                         # SQLite session persistence
 │   ├── schemas.py                          # Pydantic models
 │   ├── config.py                           # API settings
-│   ├── Dockerfile                          # HF Spaces deployment
-│   └── requirements.txt                    # Python dependencies
+│   ├── tests/                              # API test suite
+│   └── Dockerfile                          # HF Spaces deployment
 │
 ├── packages/
-│   │
 │   ├── agent/                              # LangGraph Agent Package
 │   │   ├── src/copilot/
 │   │   │   ├── agent/
 │   │   │   │   ├── nodes/
-│   │   │   │   │   ├── planner.py          # Query analysis
-│   │   │   │   │   ├── retriever.py        # Data fetching
-│   │   │   │   │   ├── analyzer.py         # Pattern finding
-│   │   │   │   │   ├── critic.py           # Quality evaluation
-│   │   │   │   │   ├── generator.py        # Output creation
-│   │   │   │   │   └── responder.py        # Response formatting
-│   │   │   │   ├── state.py                # ResearchState definition
-│   │   │   │   └── workflow.py             # LangGraph wiring
-│   │   │   ├── graph/
-│   │   │   │   └── connection.py           # Neo4j connection
-│   │   │   ├── config/
-│   │   │   │   └── settings.py             # Environment config
-│   │   │   ├── llm.py                      # LLM factory (Groq/Ollama)
-│   │   │   └── interfaces/
-│   │   │       └── cli.py                  # Command line interface
-│   │   └── pyproject.toml
+│   │   │   │   │   ├── planner.py
+│   │   │   │   │   ├── retrieval/          # Parallel fan-out nodes
+│   │   │   │   │   │   ├── graph.py
+│   │   │   │   │   │   ├── vector.py
+│   │   │   │   │   │   ├── web.py
+│   │   │   │   │   │   ├── financial.py
+│   │   │   │   │   │   └── reranker.py     # Cross-encoder rerank
+│   │   │   │   │   ├── analyzer.py
+│   │   │   │   │   ├── critic.py
+│   │   │   │   │   ├── generator.py
+│   │   │   │   │   └── responder.py
+│   │   │   │   ├── state.py                # ResearchState (+ reducers)
+│   │   │   │   └── workflow.py             # LangGraph wiring (Send fan-out)
+│   │   │   ├── ingestion/                  # BYOD pipeline
+│   │   │   │   ├── pipeline.py             # Orchestration + progress events
+│   │   │   │   ├── parser.py               # PDF/TXT parsing
+│   │   │   │   ├── chunker.py
+│   │   │   │   ├── extractor.py            # schema.org entity extraction
+│   │   │   │   └── writer.py               # Namespaced Neo4j MERGE
+│   │   │   ├── graph/connection.py         # Neo4j connection
+│   │   │   ├── llm.py                      # LLM factory (per-request provider)
+│   │   │   └── interfaces/cli.py           # Command line interface
+│   │   └── tests/                          # Agent test suite (mocked LLM)
 │   │
 │   ├── mcp-financial/                      # Alpha Vantage MCP Server
-│   │   ├── src/index.ts                    # MCP server implementation
-│   │   └── package.json
-│   │
 │   └── google-slides-mcp/                  # Google Slides MCP Server
-│       ├── src/index.ts                    # MCP server implementation
-│       └── package.json
 │
-├── data/                                   # Sample documents for ingestion
-│   └── microsoft-letters/                  # Shareholder letters 2020-2024
+├── evals/                                  # Eval harness
+│   ├── golden_dataset.jsonl
+│   ├── run_evals.py
+│   ├── judges.py
+│   └── results/                            # Committed run outputs
 │
-└── graph_ingestion_schemaorg.ipynb         # Knowledge graph ingestion notebook
+├── .github/workflows/
+│   ├── ci.yml                              # ruff + pytest + next build
+│   └── evals.yml                           # Weekly eval runs
+│
+├── data/microsoft-letters/                 # Demo corpus (2020–2024)
+└── graph_ingestion_schemaorg.ipynb         # Demo-corpus ingestion notebook
 ```
 
 ---
@@ -502,6 +515,11 @@ LLM_TEMPERATURE=0.0
 GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
 
 # =============================================================================
+# GEMINI - Used for BYOD extraction and eval judging (Optional)
+# =============================================================================
+GOOGLE_API_KEY=your_gemini_key
+
+# =============================================================================
 # OLLAMA - Local LLM (Required if LLM_PROVIDER=ollama)
 # =============================================================================
 OLLAMA_BASE_URL=http://localhost:11434
@@ -596,18 +614,12 @@ ollama serve
 ### Using the Web Interface
 
 1. **Open the app** at http://localhost:3000
-
-2. **Select LLM provider** using the toggle:
-   - Groq: Faster, but has rate limits
-   - Ollama: Slower, but no limits
-
-3. **Enter your question** in the search box
-
-4. **Watch the progress** in the log viewer on the right
-
-5. **View results** in the response panel on the left
-
-6. **Download slides** if a presentation was generated (button appears in response)
+2. **Select LLM provider** using the toggle (Groq: faster with rate limits; Ollama: slower, unlimited)
+3. **Optionally upload a document** to query your own data
+4. **Enter your question** and watch the agent's progress in the log viewer
+5. **Read the answer as it streams** in the response panel
+6. **Download slides** if a presentation was generated
+7. **Explore `/metrics`** for eval results and **`/wiki`** for design decisions
 
 ### Using the CLI
 
@@ -636,12 +648,10 @@ copilot query "What is Microsoft's AI strategy?"
 **Financial Questions:**
 - "What is Microsoft's current P/E ratio?"
 - "Compare MSFT and GOOGL revenue growth"
-- "Show me Apple's profit margins"
 
 **Factual Questions:**
 - "When did Microsoft invest in OpenAI?"
 - "What products did Microsoft launch in 2023?"
-- "Who is Microsoft's CEO?"
 
 **Exploratory Questions:**
 - "What are the key themes in Microsoft's 2024 shareholder letter?"
@@ -667,7 +677,8 @@ Submit a research query.
 {
   "query": "How has Microsoft's AI strategy evolved?",
   "llm_provider": "groq",
-  "max_iterations": 3
+  "max_iterations": 3,
+  "workspace_id": "optional-byod-namespace-uuid"
 }
 ```
 
@@ -693,23 +704,22 @@ Stream real-time events via Server-Sent Events (SSE).
 | `start` | Processing started |
 | `node_start` | Agent node started |
 | `node_complete` | Agent node finished |
-| `retrieval` | Data retrieved from source |
+| `retrieval` | Data retrieved from source (includes rerank scores) |
 | `insight` | Analysis insight generated |
 | `decision` | Critic made a decision |
 | `progress` | Iteration progress update |
+| `token` | A token of the final answer (streamed as generated) |
 | `final_response` | Final response ready |
 | `complete` | All processing done |
 | `error` | Error occurred |
 
-**Example Event:**
+**Example Token Event:**
 ```json
 {
-  "type": "retrieval",
+  "type": "token",
   "session_id": "abc123",
-  "source": "graph",
-  "query": "Microsoft AI entities",
-  "result_count": 23,
-  "timestamp": "2024-01-15T10:30:05Z"
+  "content": " cloud",
+  "timestamp": "2024-01-15T10:30:12Z"
 }
 ```
 
@@ -730,61 +740,37 @@ Stream real-time events via Server-Sent Events (SSE).
 }
 ```
 
-#### GET /api/download/{filename}
+#### POST /api/documents/upload
 
-Download a generated PowerPoint presentation.
+Upload a document for BYOD ingestion (multipart form: `file` + `workspace_id`). Limits: ~10 MB, PDF/TXT. Returns a session whose progress streams from `GET /api/documents/stream/{session_id}` with events: `parsing`, `chunked`, `extracting`, `embedding`, `graph_write`, `ingest_complete`.
 
-**Response:** Binary .pptx file
+#### GET /api/documents/{workspace_id}
 
-**Notes:**
-- Files expire after 1 hour
-- Filename must end with `.pptx`
+List documents ingested into a workspace.
+
+#### DELETE /api/documents/{workspace_id}
+
+Delete a workspace and all its namespaced graph data. (Workspaces are also auto-purged after 24 hours.)
+
+#### GET /api/evals/latest
+
+Latest eval run results (the JSON behind the `/metrics` dashboard).
 
 #### GET /api/session/{session_id}
 
-Get the current state of a session.
+Get the current state of a session. Sessions are snapshotted to SQLite, so completed sessions survive server restarts; sessions interrupted by a restart are reported as errors rather than hanging.
 
-**Response:**
-```json
-{
-  "session_id": "abc123",
-  "query": "...",
-  "status": "completed",
-  "created_at": "2024-01-15T10:30:00Z",
-  "final_response": "...",
-  "error": null
-}
-```
+#### GET /api/download/{filename}
+
+Download a generated PowerPoint presentation (binary .pptx; files expire after 1 hour).
 
 #### GET /api/debug/neo4j
 
-Debug endpoint to check Neo4j connection.
-
-**Response:**
-```json
-{
-  "status": "connected",
-  "node_labels": ["Entity", "Document", "Chunk"],
-  "relationship_types": ["RELATED_TO", "MENTIONS"],
-  "total_nodes": 1523,
-  "total_relationships": 4892,
-  "sample_nodes": [...]
-}
-```
+Debug endpoint to check Neo4j connection (labels, relationship types, node counts).
 
 #### GET /health
 
 Health check endpoint.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "service": "slidekick",
-  "version": "1.0.0",
-  "model_loaded": true
-}
-```
 
 ---
 
@@ -792,22 +778,17 @@ Health check endpoint.
 
 ### Chat Response
 
-Returned for factual, financial, and exploratory queries.
-
-Format: Markdown text with headers, bullet points, and formatting.
+Returned for factual, financial, and exploratory queries. Markdown, streamed token-by-token.
 
 ### Slides (PowerPoint)
 
 Returned for strategic and comparative queries.
 
 **Slide Structure:**
-1. **Title Slide** - Query summary and date
-2. **Executive Summary** - Key findings overview
-3. **Content Slides** (3-5) - Detailed analysis with bullets
-4. **Conclusion** - Recommendations or summary
-
-**Bullet Format:**
-Each bullet follows "Key Point: Explanation" pattern with 20-35 words.
+1. **Title Slide** — query summary and date
+2. **Executive Summary** — key findings overview
+3. **Content Slides** (3–5) — detailed analysis with bullets
+4. **Conclusion** — recommendations or summary
 
 **Generation Priority:**
 1. Google Slides API (creates shareable link)
@@ -818,56 +799,38 @@ Each bullet follows "Key Point: Explanation" pattern with 20-35 words.
 
 ## Adding Your Own Data
 
-### Knowledge Graph Ingestion
+### Option A: Upload from the UI (BYOD)
 
-The demo uses Microsoft Shareholder Letters, but you can add your own documents.
+The easiest path — no notebooks, no credentials:
 
-**Step 1: Prepare Documents**
+1. Drop a PDF or text file into the upload zone on the main page
+2. Watch live ingestion progress (parsing → chunking → entity extraction → embedding → graph write)
+3. Ask questions — retrieval automatically searches your documents alongside the demo corpus
 
-Place your documents in `data/your-folder/`:
-- Supported: PDF, TXT, DOCX
-- Recommended: Clean, structured text
+**How it works under the hood:**
+- Your browser gets a `workspace_id` (UUID in localStorage) that namespaces everything you upload
+- Chunks are extracted into schema.org entities (Gemini flash, Groq fallback) and written with `:UserDoc`/`:UserChunk` labels + a `namespace` property — the demo corpus is physically untouched
+- A second vector index (`user_doc_embeddings`) serves your chunks; graph queries filter by namespace
+- Workspaces are purged after 24 hours to stay within the Aura free-tier node budget
 
-**Step 2: Run Ingestion Notebook**
+**Limits:** ~10 MB per file, PDF/TXT, capped chunk count per upload.
 
-Open `graph_ingestion_schemaorg.ipynb` and modify:
+### Option B: Bulk Ingestion (Notebook)
 
-```python
-# Change the document path
-DOCUMENTS_PATH = "data/your-folder/"
+For replacing/extending the demo corpus itself, use `graph_ingestion_schemaorg.ipynb`:
 
-# Update entity extraction prompts if needed
-ENTITY_TYPES = ["Company", "Product", "Person", "Technology"]
-```
-
-**Step 3: Execute All Cells**
-
-The notebook will:
-1. Load and chunk documents
-2. Extract entities using LLM
-3. Create relationships between entities
-4. Store everything in Neo4j
-
-**Step 4: Verify**
-
-Check the debug endpoint:
-```
-GET /api/debug/neo4j
-```
+1. Place documents in `data/your-folder/`
+2. Update `DOCUMENTS_PATH` in the notebook
+3. Run all cells: load → chunk → LLM entity extraction → relationships → Neo4j
+4. Verify with `GET /api/debug/neo4j`
 
 ### Schema
 
-The knowledge graph uses this schema:
+The graph uses **schema.org** types (`Organization`, `Product`, `Person`, etc.) plus:
 
-**Node Labels:**
-- `Entity` - Companies, products, people, technologies
-- `Document` - Source documents
-- `Chunk` - Document chunks for retrieval
+**Node Labels:** `Document`, `Chunk` (embedded), `UserDoc`/`UserChunk` (BYOD)
 
-**Relationships:**
-- `RELATED_TO` - General relationship between entities
-- `MENTIONS` - Document/chunk mentions entity
-- `PART_OF` - Entity is part of another entity
+**Relationships:** `RELATED_TO`, `MENTIONS`, `PART_OF`, and schema.org-derived relations
 
 ---
 
@@ -875,56 +838,24 @@ The knowledge graph uses this schema:
 
 ### Frontend (Vercel)
 
-**Step 1: Push to GitHub**
-
-```bash
-git push origin main
-```
-
-**Step 2: Connect to Vercel**
-
-1. Go to [vercel.com](https://vercel.com)
-2. Import your GitHub repository
-3. Set root directory to `web`
-4. Add environment variable:
-   ```
-   NEXT_PUBLIC_API_URL=https://your-hf-space.hf.space
-   ```
-5. Deploy
+1. Push to GitHub
+2. Import the repo at [vercel.com](https://vercel.com), set root directory to `web`
+3. Add environment variable: `NEXT_PUBLIC_API_URL=https://your-hf-space.hf.space`
+4. Deploy
 
 ### Backend (HuggingFace Spaces)
 
-**Step 1: Create a Space**
+1. Create a Docker-SDK Space at [huggingface.co/spaces](https://huggingface.co/spaces)
+2. Push the repo to the Space (the root `Dockerfile`/frontmatter target `app_port: 7860`)
+3. In Space Settings → Repository Secrets, add:
+   - `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`
+   - `GROQ_API_KEY`, `GOOGLE_API_KEY`
+   - `TAVILY_API_KEY`, `ALPHA_VANTAGE_API_KEY`
+4. Verify via the Space logs and the `/health` endpoint
 
-1. Go to [huggingface.co/spaces](https://huggingface.co/spaces)
-2. Create new Space
-3. Select "Docker" as SDK
-4. Set visibility (public or private)
+### CI
 
-**Step 2: Push API Code**
-
-```bash
-cd api
-git init
-git remote add space https://huggingface.co/spaces/YOUR_USERNAME/slidekick
-git add .
-git commit -m "Initial deploy"
-git push space main
-```
-
-**Step 3: Configure Secrets**
-
-In Space Settings > Repository Secrets, add:
-- `NEO4J_URI`
-- `NEO4J_USERNAME`
-- `NEO4J_PASSWORD`
-- `GROQ_API_KEY`
-- `TAVILY_API_KEY`
-- `ALPHA_VANTAGE_API_KEY`
-
-**Step 4: Verify**
-
-Check the Space logs and visit `/health` endpoint.
+`.github/workflows/ci.yml` runs ruff, the Python test suites (agent + API), and `next build` on every push. `.github/workflows/evals.yml` runs the eval suite weekly and commits refreshed results.
 
 ---
 
@@ -944,25 +875,16 @@ pip install -e ".[dev]"
 
 #### "Neo4j connection failed"
 
-**Cause:** Wrong credentials or database not running.
-
 **Fix:**
 1. Verify NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD in .env
-2. Check if Neo4j is running: `GET /api/debug/neo4j`
-3. For Aura: Ensure URI starts with `neo4j+s://`
+2. Check `GET /api/debug/neo4j`
+3. For Aura: ensure the URI starts with `neo4j+s://`; some Aura instances use the instance ID as both username and database name
 
 #### "Groq rate limit reached"
 
-**Cause:** Exceeded Groq's free tier limits.
-
-**Fix:**
-1. Switch to Ollama in the UI
-2. Wait for the time shown in the error message
-3. Consider upgrading Groq plan for higher limits
+**Fix:** switch to Ollama in the UI, or wait for the time shown in the error message (the API surfaces the exact limit and retry time).
 
 #### "No results from knowledge graph"
-
-**Cause:** Graph is empty or query doesn't match entities.
 
 **Fix:**
 1. Check graph contents: `GET /api/debug/neo4j`
@@ -971,16 +893,9 @@ pip install -e ".[dev]"
 
 #### "Slides generation failed"
 
-**Cause:** Google Slides API not configured or billing issue.
-
-**Fix:**
-1. python-pptx fallback should work automatically
-2. Check if `python-pptx` is installed: `pip install python-pptx`
-3. For Google Slides: Verify service account and billing
+**Fix:** python-pptx fallback should work automatically; for Google Slides verify the service account.
 
 #### "Ollama connection refused"
-
-**Cause:** Ollama server not running.
 
 **Fix:**
 ```bash
@@ -989,19 +904,11 @@ ollama serve
 curl http://localhost:11434/api/tags
 ```
 
-#### "Module not found: copilot"
+#### "Session was interrupted by a server restart"
 
-**Cause:** Agent package not in Python path.
-
-**Fix:**
-```bash
-cd packages/agent
-pip install -e .
-```
+The API restarted (HF Spaces free tier sleeps) mid-query. Completed sessions are recoverable from SQLite; in-flight ones are reported as errors — just re-run the query.
 
 ### Debug Mode
-
-Enable detailed logging:
 
 ```bash
 # In .env
@@ -1018,9 +925,25 @@ View traces at [smith.langchain.com](https://smith.langchain.com)
 ### Running Tests
 
 ```bash
+# Agent package (LLM calls mocked — runs offline)
 cd packages/agent
 pytest tests/
+
+# API (FastAPI TestClient, agent mocked)
+cd ../../api
+pytest tests/
 ```
+
+Coverage includes workflow routing, state reducers, node behavior with a fake LLM, BYOD chunking/writing, SSE endpoints, and SQLite session persistence.
+
+### Running Evals
+
+```bash
+python evals/run_evals.py --subset 5   # quick sanity pass
+python evals/run_evals.py              # full golden dataset
+```
+
+Results land in `evals/results/` and are picked up by `/api/evals/latest` and the `/metrics` page.
 
 ### Code Structure
 
@@ -1028,35 +951,25 @@ pytest tests/
 
 1. Create `packages/agent/src/copilot/agent/nodes/your_node.py`
 2. Define the node function that takes and returns `ResearchState`
-3. Add to workflow in `workflow.py`
-4. Add edge connections
+3. Add to workflow in `workflow.py` and wire the edges
 
-**Adding a new data source:**
+**Adding a new retrieval source:**
 
-1. Add retrieval logic in `retriever.py`
-2. Add new field in `state.py` for results
-3. Update analyzer to handle new data type
+1. Add a node in `nodes/retrieval/your_source.py`
+2. Add a result field with an `operator.add` reducer in `state.py`
+3. Register it in the fan-out dispatch in `workflow.py`
 
 ### Local Development with Hot Reload
 
-**API:**
 ```bash
+# API
 cd api
-uvicorn main:app --reload --port 7860
-```
+python main.py
 
-**Web:**
-```bash
+# Web
 cd web
 npm run dev
 ```
-
-### Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Make changes and test locally
-4. Submit a pull request
 
 ---
 
@@ -1064,20 +977,22 @@ npm run dev
 
 | Technology | Purpose | Documentation |
 |------------|---------|---------------|
-| **LangGraph** | Agent orchestration with conditional loops | [langchain-ai.github.io/langgraph](https://langchain-ai.github.io/langgraph/) |
+| **LangGraph** | Agent orchestration: conditional loops + `Send` fan-out | [langchain-ai.github.io/langgraph](https://langchain-ai.github.io/langgraph/) |
 | **LangChain** | LLM integration and prompts | [python.langchain.com](https://python.langchain.com/) |
-| **Neo4j** | Knowledge graph database | [neo4j.com/docs](https://neo4j.com/docs/) |
+| **Neo4j** | Knowledge graph + vector indexes | [neo4j.com/docs](https://neo4j.com/docs/) |
+| **ragas** | RAG evaluation metrics | [docs.ragas.io](https://docs.ragas.io/) |
+| **sentence-transformers** | Cross-encoder reranking | [sbert.net](https://www.sbert.net/) |
 | **Next.js 15** | React framework with App Router | [nextjs.org/docs](https://nextjs.org/docs) |
 | **FastAPI** | Python API framework | [fastapi.tiangolo.com](https://fastapi.tiangolo.com/) |
 | **SSE-Starlette** | Server-Sent Events for streaming | [github.com/sysid/sse-starlette](https://github.com/sysid/sse-starlette) |
 | **Groq** | Fast LLM inference | [console.groq.com/docs](https://console.groq.com/docs) |
+| **Gemini** | BYOD extraction + eval judging | [ai.google.dev](https://ai.google.dev/) |
 | **Ollama** | Local LLM server | [ollama.ai](https://ollama.ai/) |
 | **Tavily** | AI-powered web search | [tavily.com](https://tavily.com/) |
 | **Alpha Vantage** | Financial data API | [alphavantage.co/documentation](https://www.alphavantage.co/documentation/) |
 | **python-pptx** | PowerPoint generation | [python-pptx.readthedocs.io](https://python-pptx.readthedocs.io/) |
-| **Framer Motion** | React animations | [framer.com/motion](https://www.framer.com/motion/) |
-| **shadcn/ui** | UI component library | [ui.shadcn.com](https://ui.shadcn.com/) |
-| **Tailwind CSS** | Utility-first CSS | [tailwindcss.com](https://tailwindcss.com/) |
+| **recharts** | Eval dashboard charts | [recharts.org](https://recharts.org/) |
+| **shadcn/ui + Tailwind CSS** | UI components and styling | [ui.shadcn.com](https://ui.shadcn.com/) |
 
 ---
 
@@ -1091,4 +1006,4 @@ MIT License - Use it however you want.
 
 - Microsoft Shareholder Letters used for demo knowledge graph
 - LangChain team for LangGraph
-- Anthropic, Groq, and Ollama for LLM access
+- Anthropic, Groq, Google, and Ollama for LLM access
