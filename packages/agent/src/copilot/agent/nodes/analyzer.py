@@ -240,7 +240,7 @@ def analyzer_node(state: ResearchState) -> dict[str, Any]:
             "synthesis": "I couldn't find relevant information to analyze for this query.",
         }
 
-    llm = get_llm(temperature=0.3)  # Slightly creative for synthesis
+    llm = get_llm(temperature=0.3, provider=state.get("llm_provider"))  # Slightly creative for synthesis
 
     # Prefer the cross-encoder's ranked view: per source, keep the results
     # that survived reranking, in rank order. Sources absent from the

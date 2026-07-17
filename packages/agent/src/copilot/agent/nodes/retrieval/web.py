@@ -27,6 +27,7 @@ def _query_web_tavily(query: str, max_results: int = 5) -> dict[str, Any]:
     Returns:
         Dict with source, ai_answer, results (with full content), count, confidence
     """
+    query = query[:400]  # Tavily rejects overly long queries
     logger.info("   🌐 Executing Tavily web search: '%s'", query[:60])
 
     api_key = settings.tavily_api_key_str

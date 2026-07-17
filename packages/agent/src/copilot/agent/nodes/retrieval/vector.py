@@ -25,6 +25,7 @@ def _query_vector(query: str, top_k: int = 5, namespace: str | None = None) -> d
     Returns:
         Dict with source, results (text passages), count, confidence
     """
+    query = query[:500]  # Defense-in-depth: LLM-generated queries are unbounded
     logger.info("   🔮 Executing vector search: '%s'", query[:60])
 
     try:

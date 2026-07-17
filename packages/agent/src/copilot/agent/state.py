@@ -127,6 +127,7 @@ class ResearchState(TypedDict, total=False):
     # -------------------------------------------------------------------------
     original_query: str               # The user's original question
     workspace_id: str | None          # BYOD namespace: retrieval includes this workspace's docs
+    llm_provider: str | None          # Per-request LLM provider (thread-safe, unlike a global)
     query_type: str                   # QueryType value
     entities_of_interest: list[str]   # Extracted entities to focus on (full names for graph)
     stock_symbols: list[str]          # Stock ticker symbols for financial API (MSFT, AAPL)
@@ -195,7 +196,10 @@ class ResearchState(TypedDict, total=False):
 # =============================================================================
 
 def create_initial_state(
-    query: str, max_iterations: int = 3, workspace_id: str | None = None
+    query: str,
+    max_iterations: int = 3,
+    workspace_id: str | None = None,
+    llm_provider: str | None = None,
 ) -> ResearchState:
     """
     Create the initial state for a new research query.
@@ -204,6 +208,7 @@ def create_initial_state(
         query: The user's research question
         max_iterations: Maximum research loops allowed
         workspace_id: Optional BYOD namespace to include in retrieval
+        llm_provider: Optional per-request LLM provider ("ollama" or "groq")
 
     Returns:
         Initial ResearchState ready for processing
@@ -212,6 +217,7 @@ def create_initial_state(
         messages=[],
         original_query=query,
         workspace_id=workspace_id,
+        llm_provider=llm_provider,
         query_type=QueryType.UNKNOWN.value,
         entities_of_interest=[],
         stock_symbols=[],

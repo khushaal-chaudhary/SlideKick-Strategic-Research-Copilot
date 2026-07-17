@@ -32,7 +32,9 @@ def fake_llm_factory(monkeypatch):
 
     def _install(module, responses):
         llm = FakeLLM(responses)
-        monkeypatch.setattr(module, "get_llm", lambda temperature=None: llm)
+        monkeypatch.setattr(
+            module, "get_llm", lambda temperature=None, provider=None: llm
+        )
         return llm
 
     return _install

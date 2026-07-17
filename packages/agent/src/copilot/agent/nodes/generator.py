@@ -192,7 +192,7 @@ def _format_insights_for_generation(insights: list[dict]) -> str:
 
 def _generate_chat_response(state: ResearchState) -> str:
     """Generate a conversational response."""
-    llm = get_llm(temperature=0.3)
+    llm = get_llm(temperature=0.3, provider=state.get("llm_provider"))
 
     prompt = CHAT_RESPONSE_PROMPT.format(
         query=state["original_query"],
@@ -208,7 +208,7 @@ def _generate_chat_response(state: ResearchState) -> str:
 
 def _generate_bullet_summary(state: ResearchState) -> str:
     """Generate a structured bullet summary."""
-    llm = get_llm(temperature=0.3)
+    llm = get_llm(temperature=0.3, provider=state.get("llm_provider"))
 
     prompt = BULLET_SUMMARY_PROMPT.format(
         query=state["original_query"],
@@ -222,7 +222,7 @@ def _generate_bullet_summary(state: ResearchState) -> str:
 
 def _generate_slides_content(state: ResearchState) -> dict[str, Any]:
     """Generate slide deck structure using typed layouts."""
-    llm = get_llm(temperature=0.3)
+    llm = get_llm(temperature=0.3, provider=state.get("llm_provider"))
 
     prompt = SLIDES_CONTENT_PROMPT.format(
         query=state["original_query"],

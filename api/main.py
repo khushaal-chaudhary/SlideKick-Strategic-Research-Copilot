@@ -45,12 +45,10 @@ if os.path.exists(agent_path):
 # Try to import the real agent
 try:
     from copilot.agent import create_copilot
-    from copilot.llm import set_provider_override
     AGENT_AVAILABLE = True
 except ImportError as e:
     logging.warning(f"Agent not available, using demo mode: {e}")
     AGENT_AVAILABLE = False
-    set_provider_override = None  # Dummy for type checking
 
 # =============================================================================
 # Logging Configuration
@@ -108,9 +106,16 @@ async def _purge_expired_byod_data():
     threading.Thread(target=purge, daemon=True).start()
 
 
+@app.on_event("startup")
+async def _purge_old_persisted_sessions():
+    purge_old_sessions()
+
+
 # =============================================================================
-# In-Memory Session Store (for demo - use Redis in production)
+# Session Store: in-memory hot path + SQLite snapshots (survive restarts)
 # =============================================================================
+
+from sessions import load_session, purge_old_sessions, save_session  # noqa: E402
 
 sessions: dict[str, SessionState] = {}
 sessions_lock = threading.Lock()
@@ -224,6 +229,7 @@ async def submit_query(request: QueryRequest):
     )
     with sessions_lock:
         sessions[session_id] = session
+    save_session(session)
 
     logger.info(f"New query submitted: {session_id} - {request.query[:50]}... (provider={request.llm_provider.value})")
 
@@ -286,6 +292,7 @@ async def stream_events(session_id: str):
 
             # Complete event
             session.status = "completed"
+            save_session(session)
             yield {
                 "event": "message",
                 "data": json.dumps(
@@ -301,6 +308,7 @@ async def stream_events(session_id: str):
             logger.error(f"Error in session {session_id}: {e}")
             session.status = "error"
             session.error = str(e)
+            save_session(session)
 
             # Check if this is a rate limit error
             rate_limit_info = _parse_rate_limit_error(str(e))
@@ -395,10 +403,6 @@ async def _run_real_agent(
     def run_agent():
         """Run agent in background thread, pushing events to queue."""
         try:
-            # Set the LLM provider override for this request
-            if set_provider_override:
-                set_provider_override(llm_provider)
-
             copilot = create_copilot()
             copilot.configure(max_iterations=settings.max_iterations)
 
@@ -406,6 +410,7 @@ async def _run_real_agent(
                 query,
                 thread_id=session_id,
                 workspace_id=workspace_id,
+                llm_provider=llm_provider,
                 stream_mode=["updates", "messages"],
             ):
                 event_queue.put(("event", event))
@@ -415,10 +420,6 @@ async def _run_real_agent(
         except Exception as e:
             logger.error(f"Agent thread error: {e}")
             event_queue.put(("error", e))
-        finally:
-            # Clear the provider override after request
-            if set_provider_override:
-                set_provider_override(None)
 
     # Start agent in background thread
     agent_thread = threading.Thread(target=run_agent, daemon=True)
@@ -1003,9 +1004,12 @@ async def _emit_final_response(
 async def get_session(session_id: str):
     """Get the current state of a research session."""
     with sessions_lock:
-        if session_id not in sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
-        session = sessions[session_id]
+        session = sessions.get(session_id)
+    if session is None:
+        # Fall back to the SQLite snapshot (survives restarts)
+        session = load_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
     return {
         "session_id": session.session_id,
         "query": session.query,

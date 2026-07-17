@@ -181,7 +181,7 @@ def planner_node(state: ResearchState) -> dict[str, Any]:
     query = state["original_query"]
     logger.info("📋 Planner: Analyzing query and creating research plan...")
 
-    llm = get_llm(temperature=0)  # Deterministic for planning
+    llm = get_llm(temperature=0, provider=state.get("llm_provider"))  # Deterministic for planning
 
     # Generate the plan
     prompt = PLANNER_PROMPT.format(query=query)

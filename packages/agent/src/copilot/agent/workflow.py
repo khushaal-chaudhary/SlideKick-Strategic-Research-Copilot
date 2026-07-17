@@ -296,6 +296,7 @@ class ResearchCopilot:
         query: str,
         thread_id: str | None = None,
         workspace_id: str | None = None,
+        llm_provider: str | None = None,
     ) -> dict:
         """
         Run a research query.
@@ -304,6 +305,7 @@ class ResearchCopilot:
             query: The research question
             thread_id: Optional thread ID for conversation memory
             workspace_id: Optional BYOD namespace to include in retrieval
+            llm_provider: Optional per-request LLM provider
 
         Returns:
             Final state dictionary with response
@@ -314,6 +316,7 @@ class ResearchCopilot:
             query=query,
             max_iterations=self._config.get("max_iterations", 3),
             workspace_id=workspace_id,
+            llm_provider=llm_provider,
         )
 
         config = {}
@@ -347,6 +350,7 @@ class ResearchCopilot:
         query: str,
         thread_id: str | None = None,
         workspace_id: str | None = None,
+        llm_provider: str | None = None,
         stream_mode: str | list[str] = "updates",
     ):
         """
@@ -360,6 +364,7 @@ class ResearchCopilot:
             query: The research question
             thread_id: Optional thread ID
             workspace_id: Optional BYOD namespace to include in retrieval
+            llm_provider: Optional per-request LLM provider
             stream_mode: LangGraph stream mode(s)
 
         Yields:
@@ -371,6 +376,7 @@ class ResearchCopilot:
             query=query,
             max_iterations=self._config.get("max_iterations", 3),
             workspace_id=workspace_id,
+            llm_provider=llm_provider,
         )
 
         config = {}

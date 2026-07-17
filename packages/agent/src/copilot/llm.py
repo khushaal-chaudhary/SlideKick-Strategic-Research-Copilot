@@ -2,17 +2,17 @@
 LLM Factory - Creates the right LLM based on configuration.
 
 Supports:
-- Groq - Fast inference, generous free tier (default)
+- Groq - Fast inference, generous free tier
 - Gemini (Google) - Requires API key
 - Ollama (Local) - Free, no limits, great for development
 - OpenAI - Requires API key
 
-Fallback:
-- If primary provider fails (rate limit, etc.), falls back to Ollama
+The per-request provider travels through the agent state (see
+ResearchState.llm_provider) rather than module globals, so concurrent
+requests with different providers can't race each other.
 """
 
 import logging
-from typing import Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -20,60 +20,32 @@ from copilot.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# Track if we should use fallback
-_use_fallback = False
+# Default model per explicitly-requested provider
+_PROVIDER_MODELS = {
+    "groq": "llama-3.3-70b-versatile",
+}
 
-# Per-request provider override (set via set_provider_override)
-_provider_override: str | None = None
 
-
-def set_provider_override(provider: Literal["ollama", "groq"] | None) -> None:
+def get_llm(
+    temperature: float | None = None,
+    provider: str | None = None,
+) -> BaseChatModel:
     """
-    Set a provider override for the current request.
+    Get an LLM instance.
 
-    Call with None to clear the override.
+    Args:
+        temperature: Sampling temperature (defaults to settings.llm_temperature)
+        provider: Per-request provider ("ollama", "groq", ...). Falls back to
+            settings.llm_provider when omitted.
     """
-    global _provider_override
-    _provider_override = provider
-    if provider:
-        logger.info("Provider override set: %s", provider)
-
-
-def get_provider_override() -> str | None:
-    """Get the current provider override."""
-    return _provider_override
-
-
-def get_llm(temperature: float | None = None) -> BaseChatModel:
-    """
-    Get an LLM instance based on configuration.
-
-    Priority:
-    1. Provider override (per-request)
-    2. Fallback provider (if primary failed)
-    3. Default provider from settings
-    """
-    global _use_fallback, _provider_override
-
     temp = temperature if temperature is not None else settings.llm_temperature
 
-    # Priority 1: Per-request override
-    if _provider_override:
-        provider = _provider_override
-        # Use appropriate model for the overridden provider
-        if provider == "groq":
-            model = "llama-3.3-70b-versatile"  # Groq's best model
-        elif provider == "ollama":
-            model = settings.llm_fallback_model  # Use configured Ollama model
+    if provider:
+        if provider == "ollama":
+            model = settings.llm_fallback_model  # Configured local Ollama model
         else:
-            model = settings.llm_model
-        logger.info("Using overridden LLM: provider=%s, model=%s", provider, model)
-    # Priority 2: Use fallback if flagged
-    elif _use_fallback and settings.llm_fallback_provider != "none":
-        provider = settings.llm_fallback_provider
-        model = settings.llm_fallback_model
-        logger.info("Using fallback LLM: provider=%s, model=%s", provider, model)
-    # Priority 3: Default from settings
+            model = _PROVIDER_MODELS.get(provider, settings.llm_model)
+        logger.debug("Using requested LLM: provider=%s, model=%s", provider, model)
     else:
         provider = settings.llm_provider
         model = settings.llm_model
@@ -90,26 +62,6 @@ def get_llm(temperature: float | None = None) -> BaseChatModel:
         return _get_openai_llm(model, temp)
     else:
         raise ValueError(f"Unknown LLM provider: {provider}")
-
-
-def activate_fallback():
-    """Activate fallback LLM provider (called when primary fails)."""
-    global _use_fallback
-    if settings.llm_fallback_provider != "none":
-        logger.warning(
-            "Activating fallback LLM: %s/%s",
-            settings.llm_fallback_provider,
-            settings.llm_fallback_model,
-        )
-        _use_fallback = True
-        return True
-    return False
-
-
-def reset_fallback():
-    """Reset to primary LLM provider."""
-    global _use_fallback
-    _use_fallback = False
 
 
 def _get_groq_llm(model: str, temperature: float) -> BaseChatModel:

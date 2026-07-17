@@ -301,7 +301,7 @@ def critic_node(state: ResearchState) -> dict[str, Any]:
             "refinement_focus": "",
         }
 
-    llm = get_llm(temperature=0)  # Deterministic for evaluation
+    llm = get_llm(temperature=0, provider=state.get("llm_provider"))  # Deterministic for evaluation
 
     # Build the critique prompt with full context
     prompt = CRITIC_PROMPT.format(

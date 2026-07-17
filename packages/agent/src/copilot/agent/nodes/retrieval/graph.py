@@ -26,6 +26,10 @@ def _query_graph(query: str, entities: list[str], namespace: str | None = None) 
     """
     from copilot.graph.connection import graph_connection
 
+    # Defense-in-depth: LLM-generated refinement queries are unbounded
+    query = query[:500]
+    entities = [e[:200] for e in entities if e]
+
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
