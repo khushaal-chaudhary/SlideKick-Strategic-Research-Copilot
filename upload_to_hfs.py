@@ -10,11 +10,15 @@ try:
         folder_path=".",
         repo_id="Khushaal/slidekick-agentic-system",
         repo_type="space",
+        # NB: patterns are fnmatch on the full relative path — "web" alone
+        # does NOT exclude "web/src/...", hence the explicit /** globs
         ignore_patterns=[
-            ".git", ".venv", "venv", "__pycache__", "*.pyc", "node_modules", ".DS_Store",
+            ".git/**", "**/.venv/**", "venv/**", "**/venv/**",
+            "**/__pycache__/**", "*.pyc", "**/node_modules/**", ".DS_Store",
             # secrets must never reach the Space repo
-            ".env", ".env.*", "*.env", "packages/google-slides-mcp/keys",
-            "notebooks", ".ipynb_checkpoints", "web",
+            ".env", "**/.env", "*.env", "packages/google-slides-mcp/keys/**",
+            "notebooks/**", "**/.ipynb_checkpoints/**", "*.ipynb",
+            "web/**", "*.db", "*.log",
         ]
     )
     print("✅ Upload complete!")
