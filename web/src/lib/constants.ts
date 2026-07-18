@@ -3,8 +3,8 @@
  * SlideKick - Research that kicks!
  */
 
-// Flip to false (and redeploy) once backend secrets/deployment are finalized
-export const MAINTENANCE_MODE = true;
+// Flip to true (and redeploy) to show the under-maintenance banner
+export const MAINTENANCE_MODE = false;
 
 export const SITE_CONFIG = {
   name: "SlideKick",
