@@ -1006,4 +1006,4 @@ MIT License - Use it however you want.
 
 - Microsoft Shareholder Letters used for demo knowledge graph
 - LangChain team for LangGraph
-- Anthropic, Groq, Google, and Ollama for LLM access
+- Groq, Google, and Ollama for LLM access
