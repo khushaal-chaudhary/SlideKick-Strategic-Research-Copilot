@@ -1,53 +1,121 @@
 {
-  "run_date": "2026-07-06",
-  "timestamp": "2026-07-06T13:11:24.173268+00:00",
-  "judge_model": "gemini-2.5-flash",
+  "run_date": "2026-07-20",
+  "timestamp": "2026-07-20T09:25:36.127498+00:00",
+  "judge_model": "groq/openai/gpt-oss-120b",
   "agent_provider": "groq",
-  "n_queries": 2,
-  "n_scored": 1,
-  "n_errors": 1,
+  "n_queries": 20,
+  "n_scored": 0,
+  "n_errors": 20,
   "aggregate": {
-    "faithfulness": 0.3571,
-    "context_precision": 1.0,
-    "fact_recall": 1.0,
-    "answer_quality": 0.5,
+    "faithfulness": null,
+    "context_precision": null,
+    "fact_recall": null,
+    "answer_quality": null,
     "critic_calibration_pearson": null,
-    "avg_agent_self_score": 0.8,
-    "avg_iterations": 2.0,
-    "avg_latency_s": 104.2
+    "avg_agent_self_score": null,
+    "avg_iterations": null,
+    "avg_latency_s": null
   },
   "per_query": [
     {
       "id": "q01",
       "query": "Who is the CEO of Microsoft?",
-      "query_type": "factual",
-      "answer_preview": "The current CEO of Microsoft is Satya Nadella, who has been leading the company since 2014. Under his leadership, Microsoft has undergone a significant strategic shift towards cloud computing and AI development, addressing a potential competitive gap in the market. This transition has been a key factor in the company's evolution, building on the foundation laid by its predecessors, including Bill ",
-      "scores": {
-        "faithfulness": 0.35714285714285715,
-        "context_precision": 0.9999999999833333,
-        "fact_recall": 1.0,
-        "answer_quality": 0.5,
-        "quality_dimensions": {
-          "relevance": 0.3,
-          "completeness": 0.8,
-          "specificity": 0.9,
-          "coherence": 0.4
-        }
-      },
-      "agent": {
-        "self_quality_score": 0.8,
-        "iterations": 2,
-        "retrieval_strategy": "graph_only",
-        "output_format": "chat",
-        "n_contexts": 6
-      },
-      "judge_reasoning": "The answer correctly identifies the CEO but then adds extensive, irrelevant strategic analysis, limitations, and recommendations, severely detracting from relevance and coherence for a simple factual query. While specific and complete regarding the core fact, the extraneous content makes the overall response unhelpful.",
-      "latency_s": 104.2
+      "error": "GROQ_API_KEY is required when using Groq."
     },
     {
       "id": "q02",
       "query": "What is Microsoft's corporate mission?",
-      "error": "judge: Gemini free-tier daily quota exhausted (429 RESOURCE_EXHAUSTED)"
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q03",
+      "query": "What climate commitments did Microsoft make in its 2020 shareholder letter?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q04",
+      "query": "How did Microsoft Teams perform during the pandemic according to the 2020 letter?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q05",
+      "query": "What role does the OpenAI partnership play in Microsoft's AI strategy?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q06",
+      "query": "What is Microsoft Copilot and which products does it span?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q07",
+      "query": "How did Microsoft's strategic narrative shift between the 2020 and 2023 shareholder letters?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q08",
+      "query": "What are the key themes across Microsoft's shareholder letters from 2020 to 2024?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q09",
+      "query": "What did Microsoft say about the Activision Blizzard acquisition?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q10",
+      "query": "How does Microsoft describe Azure's role in its cloud strategy?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q11",
+      "query": "What is GitHub Copilot and why does Microsoft consider it significant?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q12",
+      "query": "What security initiatives did Microsoft emphasize in its 2024 shareholder letter?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q13",
+      "query": "How does Microsoft position itself on responsible AI?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q14",
+      "query": "What did Microsoft's letters say about hybrid work?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q15",
+      "query": "Compare how Microsoft talked about gaming in 2020 versus 2022.",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q16",
+      "query": "What does Microsoft say about LinkedIn in its shareholder letters?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q17",
+      "query": "How should an enterprise software competitor respond to Microsoft's AI strategy?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q18",
+      "query": "What did Microsoft say about datacenter and AI infrastructure investment?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q19",
+      "query": "What products did Microsoft highlight as AI-first in the 2024 letter?",
+      "error": "GROQ_API_KEY is required when using Groq."
+    },
+    {
+      "id": "q20",
+      "query": "Summarize Microsoft's transformation from 2020 to 2024 as key strategic phases.",
+      "error": "GROQ_API_KEY is required when using Groq."
     }
   ]
 }
