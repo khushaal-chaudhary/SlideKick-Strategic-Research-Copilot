@@ -38,4 +38,5 @@ jobs:
           PY
 
       - name: Ping backend Space
-        run: curl -sS -m 120 -o /dev/null -w "space: %{http_code}\n" https://khushaal-slidekick-agentic-system.hf.space/health
+        run: |
+          curl -sS -m 120 -o /dev/null -w "space %{http_code}\n" https://khushaal-slidekick-agentic-system.hf.space/health
