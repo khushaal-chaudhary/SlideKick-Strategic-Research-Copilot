@@ -37,6 +37,9 @@ jobs:
           driver.close()
           PY
 
+      # Best-effort: a cold Space can take minutes to boot, and its health
+      # isn't what this job guards.
       - name: Ping backend Space
+        continue-on-error: true
         run: |
-          curl -sS -m 120 -o /dev/null -w "space %{http_code}\n" https://khushaal-slidekick-agentic-system.hf.space/health
+          curl -sS -m 240 -o /dev/null -w "space %{http_code}\n" https://khushaal-slidekick-agentic-system.hf.space/health
