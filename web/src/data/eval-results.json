@@ -1,6 +1,6 @@
 {
-  "run_date": "2026-08-24",
-  "timestamp": "2026-08-24T07:08:06.969272+00:00",
+  "run_date": "2026-08-31",
+  "timestamp": "2026-08-31T13:14:17.126473+00:00",
   "judge_model": "groq/openai/gpt-oss-120b",
   "agent_provider": "groq",
   "n_queries": 20,
